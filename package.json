@@ -22,11 +22,6 @@
     "turbo": "^2.3.3",
     "typescript": "^5.7.3"
   },
-  "lint-staged": {
-    "**/*.{ts,tsx}": [
-      "tsc -p tsconfig.json --noEmit"
-    ]
-  },
   "packageManager": "npm@10.9.2",
   "engines": {
     "node": ">=20"

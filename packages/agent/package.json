@@ -1,5 +1,5 @@
 {
-  "name": "@jay-ai/coding-agent",
+  "name": "@jay-ai/agent",
   "version": "0.0.1",
   "type": "module",
   "main": "./dist/cjs/index.cjs",
@@ -7,22 +7,25 @@
   "types": "./dist/types/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/types/index.d.ts",
       "require": "./dist/cjs/index.cjs",
-      "import": "./dist/esm/index.mjs",
-      "types": "./dist/types/index.d.ts"
+      "import": "./dist/esm/index.mjs"
     }
   },
   "scripts": {
     "build": "node esbuild.mjs && tsc -p tsconfig.json --emitDeclarationOnly --outDir dist/types",
     "dev": "tsc -p tsconfig.json --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "clean": "rm -rf dist"
-  },
-  "dependencies": {
-    "@jay-ai/core": "*"
+    "test": "echo 'No unit tests yet'",
+    "clean": "rm -rf dist",
+    "test:e2e": "tsx --env-file=../../.env e2e/agent.test.ts"
   },
   "devDependencies": {
     "esbuild": "^0.27.3",
+    "tsx": "^4.19.2",
     "typescript": "*"
+  },
+  "dependencies": {
+    "@jay-ai/core": "*"
   }
 }
