@@ -8,13 +8,17 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "incremental": true,
-    "composite": true,
-    "rootDir": ".",
-    "baseUrl": "."
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@jay-ai/core": ["packages/core/src/index.ts"],
+      "@jay-ai/core/*": ["packages/core/src/*"],
+      "@jay-ai/agent": ["packages/agent/src/index.ts"],
+      "@jay-ai/agent/*": ["packages/agent/src/*"],
+      "@jay-ai/coding-agent": ["packages/coding-agent/src/index.ts"],
+      "@jay-ai/coding-agent/*": ["packages/coding-agent/src/*"]
+    }
   },
+  "include": ["packages/*/src/**/*"],
   "exclude": ["node_modules", "**/dist/**"]
 }

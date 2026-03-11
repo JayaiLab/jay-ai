@@ -48,3 +48,12 @@ esbuild
   })
   .then(() => writeFileSync('./dist/esm/package.json', '{"type": "module"}'))
   .catch(console.error);
+
+esbuild
+  .build({
+    ...options,
+    entryPoints: ['./src/cli.ts'],
+    format: 'esm',
+    outfile: './dist/cli.js',
+  })
+  .catch(console.error);

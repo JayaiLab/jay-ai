@@ -7,22 +7,25 @@
   "types": "./dist/types/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/types/index.d.ts",
       "require": "./dist/cjs/index.cjs",
-      "import": "./dist/esm/index.mjs",
-      "types": "./dist/types/index.d.ts"
+      "import": "./dist/esm/index.mjs"
     }
   },
   "scripts": {
     "build": "node esbuild.mjs && tsc -p tsconfig.json --emitDeclarationOnly --outDir dist/types",
     "dev": "tsc -p tsconfig.json --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "cli": "node dist/cli.js"
   },
   "dependencies": {
-    "@jay-ai/core": "*"
+    "@jay-ai/core": "*",
+    "@jay-ai/agent": "*"
   },
   "devDependencies": {
     "esbuild": "^0.27.3",
+    "tsx": "^4.19.2",
     "typescript": "*"
   }
 }
