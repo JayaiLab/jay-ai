@@ -29,7 +29,7 @@ export type AssistantMessageStreamEvent = {
     index: number;
     partial_json: string;
 } | {
-    type: "thinking_signature_delta"
+    type: "thinking_signature_delta";
 }
 
 export interface TextBlock {
@@ -58,41 +58,24 @@ export interface ToolResultBlock {
 
 export type InputMessageContent = TextBlock | ToolUseBlock | ThinkingBlock | ToolResultBlock;
 
-// input message to the agent
 export type InputMessage = {
     role: "user" | "assistant";
     content: string | InputMessageContent[];
 }
 
+export type AssistantMessageContent = TextBlock | ToolUseBlock | ThinkingBlock;
 
-export interface AssistantToolBlock extends ToolUseBlock {
-    input_json: string;
-}
-
-
-export type AssistantMessageContent = TextBlock | AssistantToolBlock | ThinkingBlock;
-
-// Output message from the assistant
 export type AssistantMessage = {
     role: "assistant";
     content: AssistantMessageContent[];
-    stop_reason?: 'end_turn' | 'tool_use' | 'max_tokens';
+    stop_reason?: "end_turn" | "tool_use" | "max_tokens";
 }
 
 export namespace ToolScope {
-    /**
-     * [JSON schema](https://json-schema.org/draft/2020-12) for this tool's input.
-     *
-     * This defines the shape of the `input` that your tool accepts and that the model
-     * will produce.
-     */
     export interface InputSchema {
-        type: 'object';
-
+        type: "object";
         properties?: Record<string, Property>;
-
         required?: Array<string> | null;
-
         [k: string]: unknown;
     }
     export interface Property {
@@ -114,18 +97,8 @@ export type ThinkingConfigEnabled = {
 export type ThinkingConfigDisabled = {
     type: "disabled";
 }
-
 export type ThinkingConfigAdaptive = {
     type: "adaptive";
     effort: "low" | "medium" | "high";
 }
-
 export type ThinkingConfigParam = ThinkingConfigEnabled | ThinkingConfigDisabled | ThinkingConfigAdaptive;
-export interface AnthropicParams {
-    model: string;
-    system?: string;
-    messages: InputMessage[];
-    tools?: ToolParams[];
-    max_tokens?: number;
-    thinking?: ThinkingConfigParam;
-}

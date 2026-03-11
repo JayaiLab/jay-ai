@@ -24,17 +24,26 @@ const weatherTool: Tool = {
     func: (input) => getWeather(input.city as string),
 };
 
-const weatherAgent = new Agent({
+console.log("--- Anthropic ---");
+const anthropicAgent = new Agent({
     model: "claude-haiku-4-5",
-    systemMessage: "You are a helpful assistant.",
+    modelProvider: "anthropic",
+    system: "You are a helpful assistant.",
     max_tokens: 20000,
 }, [weatherTool]);
 
-const weatherStream = weatherAgent.run("What is the weather like in San Francisco?");
-
-for await (const event of weatherStream) {
-    const timestamp = new Date().getTime();
-    console.log(`${timestamp} weather.stream`, event);
+for await (const event of anthropicAgent.run("What is the weather like in San Francisco?")) {
+    console.log(event);
 }
 
-// console.log("weatherAgent.getMessages()", JSON.stringify(weatherAgent.getMessages(), null, 2));
+console.log("--- OpenAI ---");
+const openaiAgent = new Agent({
+    model: "gpt-4o-mini",
+    modelProvider: "openai",
+    system: "You are a helpful assistant.",
+    max_tokens: 1000,
+}, [weatherTool]);
+
+for await (const event of openaiAgent.run("What is the weather like in San Francisco?")) {
+    console.log(event);
+}

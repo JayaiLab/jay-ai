@@ -1,10 +1,11 @@
 import { ThinkingConfigParam } from "@jay-ai/core";
-export interface AgentParams {
+
+export type ModelProvider = "anthropic" | "openai";
+
+export interface AgentConfig {
     model: string;
-    systemMessage: string;
+    modelProvider: ModelProvider;
+    system?: string;
     thinking?: ThinkingConfigParam;
     max_tokens?: number;
 }
-
-export interface AgentRunConfig {
-}   
