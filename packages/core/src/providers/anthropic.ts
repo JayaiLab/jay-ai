@@ -1,28 +1,34 @@
 import { Anthropic } from "@anthropic-ai/sdk";
 import { AssistantMessageEventStream } from "../event-stream";
-import { AssistantMessage, TextBlock, ThinkingBlock, ThinkingConfigParam, ToolUseBlock } from "../types/messages";
-import { CanonicalRequest, LLMProvider } from "./types";
+import { AssistantMessage, TextBlock, ThinkingBlock, ThinkingEffort, ToolUseBlock } from "../types/messages";
+import { CanonicalRequest, LLMProvider, ModelConfig } from "../types/model";
 
-const DEFAULT_THINKING_BUDGET_TOKENS = 16000;
-const DEFAULT_MAX_TOKENS = 20000;
+const DEFAULT_MAX_TOKENS = 200000;
+
+// Models that support adaptive thinking via output_config.effort
+const ADAPTIVE_THINKING_MODELS = [
+    "claude-opus-4-6",
+    "claude-sonnet-4-6",
+    "claude-opus-4-5",
+];
+
+const BUDGET_TOKENS: Record<string, number> = {
+    minimal: 1024,
+    low: 2000,
+    medium: 8000,
+    high: 16000,
+    xhigh: 16000,
+};
 
 // Internal type for accumulating streamed tool input JSON
 interface ToolBlockAccumulator extends ToolUseBlock {
     input_json: string;
 }
 
-export interface AnthropicProviderConfig {
-    model: string;
-    system?: string;
-    thinking?: ThinkingConfigParam;
-    max_tokens?: number;
-    apiKey?: string;
-}
-
 export class AnthropicProvider implements LLMProvider {
     private client: Anthropic;
 
-    constructor(private config: AnthropicProviderConfig) {
+    constructor(private config: ModelConfig) {
         this.client = new Anthropic({ apiKey: config.apiKey ?? process.env.ANTHROPIC_API_KEY });
     }
 
@@ -30,13 +36,13 @@ export class AnthropicProvider implements LLMProvider {
         const eventStream = new AssistantMessageEventStream();
         const { config } = this;
         const maxTokens = config.max_tokens ?? DEFAULT_MAX_TOKENS;
-        const budgetTokens = config.thinking?.type === "enabled"
-            ? config.thinking.budget_tokens
-            : DEFAULT_THINKING_BUDGET_TOKENS;
-
-        if (maxTokens <= budgetTokens) {
-            throw new Error(`max_tokens (${maxTokens}) must be greater than thinking.budget_tokens (${budgetTokens})`);
-        }
+        const effort = config.thinking?.effort;
+        const supportsAdaptive = ADAPTIVE_THINKING_MODELS.some(m => config.model.startsWith(m));
+        const thinkingConfig = effort && effort !== "none"
+            ? supportsAdaptive
+                ? { thinking: { type: "adaptive" as const }, output_config: { effort: this.mapAdaptiveEffort(effort) } }
+                : { thinking: { type: "enabled" as const, budget_tokens: BUDGET_TOKENS[effort] } }
+            : {};
 
         (async () => {
             const anthropicStream = this.client.messages.stream({
@@ -46,9 +52,7 @@ export class AnthropicProvider implements LLMProvider {
                 tools: request.tools?.map(({ name, description, input_schema }) => ({ name, description, input_schema })),
                 max_tokens: maxTokens,
                 stream: true,
-                thinking: config.thinking?.type === "enabled"
-                    ? config.thinking
-                    : { type: "enabled", budget_tokens: DEFAULT_THINKING_BUDGET_TOKENS },
+                ...thinkingConfig,
             });
 
             const output: AssistantMessage = { role: "assistant", content: [] };
@@ -103,5 +107,16 @@ export class AnthropicProvider implements LLMProvider {
         })();
 
         return eventStream;
+    }
+
+    private mapAdaptiveEffort(effort: ThinkingEffort): "low" | "medium" | "high" | "max" {
+        switch (effort) {
+            case "minimal":
+            case "low": return "low";
+            case "medium": return "medium";
+            case "high": return "high";
+            case "xhigh": return "max";
+            default: return "medium";
+        }
     }
 }

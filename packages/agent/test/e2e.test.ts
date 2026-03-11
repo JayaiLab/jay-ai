@@ -29,7 +29,6 @@ const anthropicAgent = new Agent({
     model: "claude-haiku-4-5",
     modelProvider: "anthropic",
     system: "You are a helpful assistant.",
-    max_tokens: 20000,
 }, [weatherTool]);
 
 for await (const event of anthropicAgent.run("What is the weather like in San Francisco?")) {

@@ -18,7 +18,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "echo 'No unit tests yet'",
     "clean": "rm -rf dist",
-    "test:e2e": "tsx --env-file=../../.env e2e/agent.test.ts"
+    "test:e2e": "tsx --env-file=../../.env test/e2e.test.ts"
   },
   "devDependencies": {
     "esbuild": "^0.27.3",

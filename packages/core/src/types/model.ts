@@ -1,5 +1,13 @@
 import { AssistantMessageEventStream } from "../event-stream";
-import { InputMessage, ToolParams } from "../types/messages";
+import { InputMessage, ThinkingConfig, ToolParams } from "./messages";
+
+export interface ModelConfig {
+    model: string;
+    system?: string;
+    thinking?: ThinkingConfig;
+    max_tokens?: number;
+    apiKey?: string;
+}
 
 export interface CanonicalRequest {
     messages: InputMessage[];

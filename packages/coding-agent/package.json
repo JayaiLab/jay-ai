@@ -16,8 +16,7 @@
     "build": "node esbuild.mjs && tsc -p tsconfig.json --emitDeclarationOnly --outDir dist/types",
     "dev": "tsc -p tsconfig.json --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "clean": "rm -rf dist",
-    "cli": "node dist/cli.js"
+    "clean": "rm -rf dist"
   },
   "dependencies": {
     "@jay-ai/core": "*",
