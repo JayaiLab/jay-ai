@@ -10,11 +10,13 @@ function createProvider(config: AgentConfig): LLMProvider {
 }
 
 export class Agent {
-    private provider: LLMProvider;
+    readonly provider: LLMProvider;
+    private config: AgentConfig;
     private messages: InputMessage[] = [];
     private tools: Record<string, Tool> = {};
 
     constructor(config: AgentConfig, tools: Tool[] = []) {
+        this.config = config;
         this.provider = createProvider(config);
         for (const tool of tools) {
             this.registerTool(tool);
@@ -79,6 +81,10 @@ export class Agent {
         const tool = this.tools[toolName];
         if (!tool) throw new Error(`Tool ${toolName} not found`);
         return await tool.func(inputParams);
+    }
+
+    getAgentConfig(): AgentConfig {
+        return this.config;
     }
 
     getMessages(): InputMessage[] {

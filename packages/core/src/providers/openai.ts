@@ -1,19 +1,12 @@
 import OpenAI from "openai";
 import { AssistantMessageEventStream } from "../event-stream";
 import { AssistantMessage, InputMessage, InputMessageContent, TextBlock, ToolParams, ToolResultBlock, ToolUseBlock } from "../types/messages";
-import { CanonicalRequest, LLMProvider } from "./types";
-
-export interface OpenAIProviderConfig {
-    model: string;
-    system?: string;
-    max_tokens?: number;
-    apiKey?: string;
-}
+import { CanonicalRequest, LLMProvider, ModelConfig } from "../types/model";
 
 export class OpenAIProvider implements LLMProvider {
     private client: OpenAI;
 
-    constructor(private config: OpenAIProviderConfig) {
+    constructor(private config: ModelConfig) {
         this.client = new OpenAI({ apiKey: config.apiKey ?? process.env.OPENAI_API_KEY });
     }
 
@@ -99,6 +92,7 @@ export class OpenAIProvider implements LLMProvider {
                 messages: this.buildMessages(request.messages),
                 ...(request.tools && request.tools.length > 0 ? { tools: this.buildTools(request.tools) } : {}),
                 ...(config.max_tokens ? { max_tokens: config.max_tokens } : {}),
+                ...(config.thinking?.effort ? { reasoning_effort: config.thinking.effort } : {}),
                 stream: true,
             });
 

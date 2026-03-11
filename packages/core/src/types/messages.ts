@@ -90,15 +90,8 @@ export interface ToolParams {
     input_schema: ToolScope.InputSchema;
 }
 
-export type ThinkingConfigEnabled = {
-    type: "enabled";
-    budget_tokens: number;
+export type ThinkingEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
+
+export interface ThinkingConfig {
+    effort: ThinkingEffort;
 }
-export type ThinkingConfigDisabled = {
-    type: "disabled";
-}
-export type ThinkingConfigAdaptive = {
-    type: "adaptive";
-    effort: "low" | "medium" | "high";
-}
-export type ThinkingConfigParam = ThinkingConfigEnabled | ThinkingConfigDisabled | ThinkingConfigAdaptive;
