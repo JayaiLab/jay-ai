@@ -1,14 +1,21 @@
-import { AgentConfig, AnthropicParams, AssistantMessageEventStream, InputMessage, streamAnthropic } from "@jay-ai/core";
+import { AnthropicProvider, AssistantMessageEventStream, InputMessage, LLMProvider, OpenAIProvider } from "@jay-ai/core";
+import { AgentConfig } from "./types/agents";
 import { Tool } from "./types/tools";
-import { AgentParams } from "./types/agents";
+
+function createProvider(config: AgentConfig): LLMProvider {
+    switch (config.modelProvider) {
+        case "anthropic": return new AnthropicProvider(config);
+        case "openai": return new OpenAIProvider(config);
+    }
+}
 
 export class Agent {
+    private provider: LLMProvider;
     private messages: InputMessage[] = [];
     private tools: Record<string, Tool> = {};
-    private agentParams: AgentParams;
 
-    constructor(agentParams: AgentParams, tools: Tool[] = []) {
-        this.agentParams = agentParams;
+    constructor(config: AgentConfig, tools: Tool[] = []) {
+        this.provider = createProvider(config);
         for (const tool of tools) {
             this.registerTool(tool);
         }
@@ -29,12 +36,8 @@ export class Agent {
             const max_loops = 100;
             while (loop_number < max_loops) {
                 loop_number++;
-                const stream = streamAnthropic({
-                    model: this.agentParams.model,
-                    system: this.agentParams.systemMessage,
+                const stream = this.provider.stream({
                     messages: this.messages,
-                    max_tokens: this.agentParams.max_tokens,
-                    thinking: this.agentParams.thinking,
                     tools: Object.values(this.tools).map(({ name, description, input_schema }) => ({
                         name,
                         description,
@@ -48,16 +51,10 @@ export class Agent {
                 if (assistantMessage) {
                     this.messages.push({
                         role: assistantMessage.role,
-                        content: assistantMessage.content.map(block => {
-                            if (block.type === 'tool_use') {
-                                const { input_json, ...rest } = block;
-                                return rest;
-                            }
-                            return block;
-                        }),
+                        content: assistantMessage.content,
                     });
                 }
-                if (assistantMessage?.stop_reason === 'tool_use') {
+                if (assistantMessage?.stop_reason === "tool_use") {
                     for (const content of assistantMessage.content) {
                         if (content.type !== "tool_use") continue;
                         const toolOutput = await this.callTool(content.name, content.input);
@@ -66,7 +63,10 @@ export class Agent {
                             content: [{ type: "tool_result", tool_use_id: content.id, content: toolOutput }],
                         });
                     }
-                } else if (assistantMessage?.stop_reason === 'end_turn' || assistantMessage?.stop_reason === 'max_tokens') {
+                } else if (
+                    assistantMessage?.stop_reason === "end_turn" ||
+                    assistantMessage?.stop_reason === "max_tokens"
+                ) {
                     break;
                 }
             }
