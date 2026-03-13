@@ -16,7 +16,9 @@
       "@jay-ai/agent": ["packages/agent/src/index.ts"],
       "@jay-ai/agent/*": ["packages/agent/src/*"],
       "@jay-ai/coding-agent": ["packages/coding-agent/src/index.ts"],
-      "@jay-ai/coding-agent/*": ["packages/coding-agent/src/*"]
+      "@jay-ai/coding-agent/*": ["packages/coding-agent/src/*"],
+      "@jay-ai/tui": ["packages/tui/src/index.ts"],
+      "@jay-ai/tui/*": ["packages/tui/src/*"]
     }
   },
   "include": ["packages/*/src/**/*"],
