@@ -20,7 +20,8 @@
   },
   "dependencies": {
     "@jay-ai/core": "*",
-    "@jay-ai/agent": "*"
+    "@jay-ai/agent": "*",
+    "@jay-ai/tui": "*"
   },
   "devDependencies": {
     "esbuild": "^0.27.3",
