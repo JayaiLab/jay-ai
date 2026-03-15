@@ -1,5 +1,5 @@
-import { ToolParams } from "@jay-ai/core";
+import { ToolParams, ToolResultContent } from "@jay-ai/core";
 
-export interface Tool extends ToolParams {
-    func: (input: Record<string, unknown>) => string | Promise<string>;
+export interface AgentTool<T extends Record<string, unknown> = Record<string, unknown>> extends ToolParams {
+    func: (input: T) => ToolResultContent | Promise<ToolResultContent>;
 }

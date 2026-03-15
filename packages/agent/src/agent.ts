@@ -1,6 +1,15 @@
-import { AnthropicProvider, AssistantMessageEventStream, InputMessage, LLMProvider, OpenAIProvider } from "@jay-ai/core";
+import { AnthropicProvider, AssistantMessage, AssistantMessageStreamEvent, EventStream, InputMessage, LLMProvider, OpenAIProvider, ToolResultBlock, ToolResultContent } from "@jay-ai/core";
 import { AgentConfig } from "./types/agents";
-import { Tool } from "./types/tools";
+import { AgentTool } from "./types/tools";
+
+export type ToolExecutionEvent =
+    | { type: "tool_execution_start"; tool_use_id: string; name: string }
+    | { type: "tool_execution_update"; tool_use_id: string; text: string }
+    | { type: "tool_execution_end"; tool_use_id: string; name: string };
+
+export type AgentStreamEvent = AssistantMessageStreamEvent | ToolExecutionEvent;
+
+export class AgentEventStream extends EventStream<AgentStreamEvent, AssistantMessage> {}
 
 function createProvider(config: AgentConfig): LLMProvider {
     switch (config.modelProvider) {
@@ -13,9 +22,10 @@ export class Agent {
     readonly provider: LLMProvider;
     private config: AgentConfig;
     private messages: InputMessage[] = [];
-    private tools: Record<string, Tool> = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private tools: Record<string, AgentTool<any>> = {};
 
-    constructor(config: AgentConfig, tools: Tool[] = []) {
+    constructor(config: AgentConfig, tools: AgentTool<any>[] = []) {
         this.config = config;
         this.provider = createProvider(config);
         for (const tool of tools) {
@@ -23,16 +33,16 @@ export class Agent {
         }
     }
 
-    registerTool(tool: Tool) {
+    registerTool(tool: AgentTool<any>) {
         this.tools[tool.name] = tool;
     }
 
-    run(input: string): AssistantMessageEventStream {
+    run(input: string): AgentEventStream {
         this.messages.push({
             role: "user",
             content: [{ type: "text", text: input }],
         });
-        const agentStream = new AssistantMessageEventStream();
+        const agentStream = new AgentEventStream();
         (async () => {
             let loop_number = 0;
             const max_loops = 100;
@@ -57,14 +67,16 @@ export class Agent {
                     });
                 }
                 if (assistantMessage?.stop_reason === "tool_use") {
+                    const toolResults: ToolResultBlock[] = [];
                     for (const content of assistantMessage.content) {
                         if (content.type !== "tool_use") continue;
+                        agentStream.push({ type: "tool_execution_start", tool_use_id: content.id, name: content.name });
                         const toolOutput = await this.callTool(content.name, content.input);
-                        this.messages.push({
-                            role: "user",
-                            content: [{ type: "tool_result", tool_use_id: content.id, content: toolOutput }],
-                        });
+                        agentStream.push({ type: "tool_execution_end", tool_use_id: content.id, name: content.name });
+                        toolResults.push({ type: "tool_result", tool_use_id: content.id, content: toolOutput });
                     }
+                    // Anthropic requires the tool results to be combined into a single user message.
+                    this.messages.push({ role: "user", content: toolResults });
                 } else if (
                     assistantMessage?.stop_reason === "end_turn" ||
                     assistantMessage?.stop_reason === "max_tokens"
@@ -77,7 +89,7 @@ export class Agent {
         return agentStream;
     }
 
-    private async callTool(toolName: string, inputParams: Record<string, unknown>): Promise<string> {
+    private async callTool(toolName: string, inputParams: Record<string, unknown>): Promise<ToolResultContent> {
         const tool = this.tools[toolName];
         if (!tool) throw new Error(`Tool ${toolName} not found`);
         return await tool.func(inputParams);

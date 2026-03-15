@@ -50,13 +50,59 @@ export interface ToolUseBlock {
     input: Record<string, unknown>;
 }
 
+
+export interface Base64ImageSource {
+    type: "base64";
+    data: string;
+    media_type: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
+}
+export interface UrlImageSource {
+    type: "url";
+    url: string;
+}
+export interface ImageBlock {
+    type: "image";
+    source: Base64ImageSource | UrlImageSource;
+}
+
+export type DocumentMediaType =
+    | "application/pdf"
+    // spreadsheets
+    | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    | "application/vnd.ms-excel"
+    | "text/csv"
+    | "text/tsv"
+    | "application/x-iif"
+    // word / rich docs
+    | "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    | "application/msword"
+    | "application/rtf"
+    | "application/vnd.oasis.opendocument.text"
+    | "application/vnd.apple.pages"
+    // presentations
+    | "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    | "application/vnd.ms-powerpoint"
+    | "application/vnd.apple.keynote";
+
+export interface DocumentBlock {
+    type: "document";
+    source: {
+        type: "base64";
+        media_type: DocumentMediaType;
+        data: string;
+    };
+    filename?: string;
+}
+
+export type ToolResultContent = string | Array<TextBlock | ImageBlock | DocumentBlock>;
+
 export interface ToolResultBlock {
     type: "tool_result";
     tool_use_id: string;
-    content: string;
+    content: ToolResultContent;
 }
 
-export type InputMessageContent = TextBlock | ToolUseBlock | ThinkingBlock | ToolResultBlock;
+export type InputMessageContent = TextBlock | ToolUseBlock | ThinkingBlock | ToolResultBlock | DocumentBlock;
 
 export type InputMessage = {
     role: "user" | "assistant";
@@ -80,13 +126,13 @@ export namespace ToolScope {
     }
     export interface Property {
         type: "string" | "number" | "boolean" | "array" | "object" | string;
-        description: string;
+        description?: string;
     }
 }
 
 export interface ToolParams {
     name: string;
-    description: string;
+    description?: string;
     input_schema: ToolScope.InputSchema;
 }
 

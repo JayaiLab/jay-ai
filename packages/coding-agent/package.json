@@ -19,9 +19,10 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@jay-ai/core": "*",
     "@jay-ai/agent": "*",
-    "@jay-ai/tui": "*"
+    "@jay-ai/core": "*",
+    "@jay-ai/tui": "*",
+    "@sinclair/typebox": "^0.34.48"
   },
   "devDependencies": {
     "esbuild": "^0.27.3",
