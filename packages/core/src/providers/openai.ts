@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { AssistantMessageEventStream } from "../event-stream";
-import { AssistantMessage, InputMessage, InputMessageContent, TextBlock, ToolParams, ToolResultBlock, ToolUseBlock } from "../types/messages";
+import { AssistantMessage, DocumentBlock, ImageBlock, InputMessage, InputMessageContent, TextBlock, ToolParams, ToolResultBlock, ToolUseBlock } from "../types/messages";
 import { CanonicalRequest, LLMProvider, ModelConfig } from "../types/model";
 
 export class OpenAIProvider implements LLMProvider {
@@ -40,7 +40,35 @@ export class OpenAIProvider implements LLMProvider {
                     result.push({ role: "user", content: textParts.join("\n") });
                 }
                 for (const tr of toolResults) {
-                    result.push({ role: "tool", tool_call_id: tr.tool_use_id, content: tr.content });
+                    if (typeof tr.content === "string") {
+                        result.push({ role: "tool", tool_call_id: tr.tool_use_id, content: tr.content });
+                    } else {
+                        const textContent = tr.content.filter(b => b.type === "text").map(b => (b as TextBlock).text).join("\n");
+                        result.push({ role: "tool", tool_call_id: tr.tool_use_id, content: textContent });
+
+                        const imageBlocks = tr.content.filter(b => b.type === "image") as ImageBlock[];
+                        if (imageBlocks.length > 0) {
+                            result.push({
+                                role: "user",
+                                content: imageBlocks.map(b => ({
+                                    type: "image_url" as const,
+                                    image_url: {
+                                        url: b.source.type === "base64"
+                                            ? `data:${b.source.media_type};base64,${b.source.data}`
+                                            : b.source.url,
+                                    },
+                                })),
+                            });
+                        }
+
+                        const docBlocks = tr.content.filter(b => b.type === "document") as DocumentBlock[];
+                        for (const doc of docBlocks) {
+                            result.push({
+                                role: "user",
+                                content: [{ type: "file" as const, file: { filename: doc.filename ?? "document", file_data: `data:${doc.source.media_type};base64,${doc.source.data}` } }],
+                            } as unknown as OpenAI.ChatCompletionMessageParam);
+                        }
+                    }
                 }
             } else if (msg.role === "assistant") {
                 const textParts: string[] = [];

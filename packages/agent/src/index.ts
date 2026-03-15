@@ -1,3 +1,4 @@
-export { Agent } from "./agent";
+export { Agent, AgentEventStream } from "./agent";
 export type { AgentConfig, ModelProvider } from "./types/agents";
-export type { Tool } from "./types/tools";
+export type { AgentTool } from "./types/tools";
+export type { AgentStreamEvent, ToolExecutionEvent } from "./agent";
