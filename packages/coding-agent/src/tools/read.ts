@@ -57,13 +57,14 @@ const Input = Type.Object({
     path: Type.String({ description: "The file path to read (relative, absolute, or starting with ~)." }),
     offset: Type.Optional(Type.Number({ description: "The line number to start reading from (0-indexed). Defaults to 0." })),
     limit: Type.Optional(Type.Number({ description: `The maximum number of lines to read. Defaults to ${DEFAULT_MAX_LINES}.` })),
+    description: Type.Optional(Type.String({ description: "Short human-readable label for what this file does, e.g. 'README.md'." })),
 });
 
 type Input = Static<typeof Input>;
 
 function createReadTool(cwd: string): AgentTool<Input> {
     return {
-        name: "read_file",
+        name: "read",
         description: "Read the contents of a file at the given path. Accepts relative paths, absolute paths, and ~ home expansion.",
         input_schema: Input,
         func: (input) => {

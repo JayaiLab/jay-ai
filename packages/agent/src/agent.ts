@@ -3,13 +3,13 @@ import { AgentConfig } from "./types/agents";
 import { AgentTool } from "./types/tools";
 
 export type ToolExecutionEvent =
-    | { type: "tool_execution_start"; tool_use_id: string; name: string }
+    | { type: "tool_execution_start"; tool_use_id: string; name: string; description?: string; input: Record<string, unknown> }
     | { type: "tool_execution_update"; tool_use_id: string; text: string }
-    | { type: "tool_execution_end"; tool_use_id: string; name: string };
+    | { type: "tool_execution_end"; tool_use_id: string; name: string; output: ToolResultContent };
 
 export type AgentStreamEvent = AssistantMessageStreamEvent | ToolExecutionEvent;
 
-export class AgentEventStream extends EventStream<AgentStreamEvent, AssistantMessage> {}
+export class AgentEventStream extends EventStream<AgentStreamEvent, AssistantMessage> { }
 
 function createProvider(config: AgentConfig): LLMProvider {
     switch (config.modelProvider) {
@@ -70,9 +70,11 @@ export class Agent {
                     const toolResults: ToolResultBlock[] = [];
                     for (const content of assistantMessage.content) {
                         if (content.type !== "tool_use") continue;
-                        agentStream.push({ type: "tool_execution_start", tool_use_id: content.id, name: content.name });
-                        const toolOutput = await this.callTool(content.name, content.input);
-                        agentStream.push({ type: "tool_execution_end", tool_use_id: content.id, name: content.name });
+                        agentStream.push({ type: "tool_execution_start", tool_use_id: content.id, name: content.name, description: this.getToolHumanReadableName(content.input), input: content.input });
+                        const toolOutput = await this.callTool(content.name, content.input, (text) => {
+                            agentStream.push({ type: "tool_execution_update", tool_use_id: content.id, text });
+                        });
+                        agentStream.push({ type: "tool_execution_end", tool_use_id: content.id, name: content.name, output: toolOutput });
                         toolResults.push({ type: "tool_result", tool_use_id: content.id, content: toolOutput });
                     }
                     // Anthropic requires the tool results to be combined into a single user message.
@@ -88,11 +90,18 @@ export class Agent {
         })();
         return agentStream;
     }
-
-    private async callTool(toolName: string, inputParams: Record<string, unknown>): Promise<ToolResultContent> {
+    private getToolHumanReadableName(toolInput: Record<string, unknown>): string | undefined {
+        if (typeof toolInput.description === "string") return toolInput.description;
+        return undefined;
+    }
+    private async callTool(toolName: string, inputParams: Record<string, unknown>, onUpdate: (text: string) => void): Promise<ToolResultContent> {
         const tool = this.tools[toolName];
-        if (!tool) throw new Error(`Tool ${toolName} not found`);
-        return await tool.func(inputParams);
+        if (!tool) return `Error: Tool "${toolName}" not found.`;
+        try {
+            return await tool.func(inputParams, { onUpdate });
+        } catch (err: unknown) {
+            return `Error: ${err instanceof Error ? err.message : String(err)}`;
+        }
     }
 
     getAgentConfig(): AgentConfig {
