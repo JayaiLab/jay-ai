@@ -31,6 +31,9 @@ import { Type, type Static } from "@sinclair/typebox";
 import { Terminal } from "@jay-ai/tui";
 import readTool from "./tools/read";
 import bashTool from "./tools/bash";
+import writeTool from "./tools/write";
+import editTool from "./tools/edit";
+import grepTool from "./tools/grep";
 import { systemPrompt } from "./system-prompt";
 
 try {
@@ -69,7 +72,7 @@ const agent = new Agent({
     modelProvider: "openai",
     system: systemPrompt,
     max_tokens: 16000,
-}, [weatherTool, readTool, bashTool]);
+}, [weatherTool, readTool, bashTool, writeTool, editTool, grepTool]);
 
 terminal.write("Welcome to Jay AI. Type a message to get started.\n\n");
 
