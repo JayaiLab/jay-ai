@@ -52,8 +52,9 @@ esbuild
 esbuild
   .build({
     ...options,
-    entryPoints: ['./src/cli.ts'],
+    entryPoints: ['./src/cli/commands.ts'],
     format: 'esm',
     outfile: './dist/cli.js',
+    packages: 'external',
   })
   .catch(console.error);

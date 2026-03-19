@@ -7,6 +7,7 @@ export interface ModelConfig {
     thinking?: ThinkingConfig;
     max_tokens?: number;
     apiKey?: string;
+    authToken?: string;
 }
 
 export interface CanonicalRequest {
