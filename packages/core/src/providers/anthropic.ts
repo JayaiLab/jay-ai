@@ -29,7 +29,11 @@ export class AnthropicProvider implements LLMProvider {
     private client: Anthropic;
 
     constructor(private config: ModelConfig) {
-        this.client = new Anthropic({ apiKey: config.apiKey ?? process.env.ANTHROPIC_API_KEY });
+        this.client = new Anthropic(
+            config.authToken
+                ? { authToken: config.authToken }
+                : { apiKey: config.apiKey ?? process.env.ANTHROPIC_API_KEY }
+        );
     }
 
     stream(request: CanonicalRequest): AssistantMessageEventStream {
