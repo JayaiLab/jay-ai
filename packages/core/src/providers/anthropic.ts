@@ -102,8 +102,10 @@ export class AnthropicProvider implements LLMProvider {
                         (block as Partial<ToolBlockAccumulator>).input_json = undefined;
                     }
                 } else if (event.type === "message_delta") {
+                    // Each streamed response only has exactly one message_delta event
                     output.stop_reason = event.delta.stop_reason as AssistantMessage["stop_reason"];
                 } else if (event.type === "message_stop") {
+                    eventStream.push({ type: "message_end" });
                     eventStream.setFinalOutput(output);
                     eventStream.close();
                 }
