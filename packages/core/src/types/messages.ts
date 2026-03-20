@@ -2,6 +2,8 @@ export type AssistantMessageStreamEvent = {
     type: "message_start";
     text: string;
 } | {
+    type: "message_end";
+} | {
     type: "thinking_start";
     index: number;
 } | {

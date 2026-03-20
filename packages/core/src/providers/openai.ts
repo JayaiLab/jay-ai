@@ -184,6 +184,7 @@ export class OpenAIProvider implements LLMProvider {
                 }
             }
 
+            eventStream.push({ type: "message_end" });
             eventStream.setFinalOutput(output);
             eventStream.close();
         })();

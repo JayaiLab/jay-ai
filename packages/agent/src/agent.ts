@@ -1,13 +1,7 @@
-import { AnthropicProvider, AssistantMessage, AssistantMessageStreamEvent, EventStream, InputMessage, LLMProvider, OpenAIProvider, ToolResultBlock, ToolResultContent } from "@jay-ai/core";
-import { AgentConfig } from "./types/agents";
+import { AnthropicProvider, AssistantMessage, EventStream, InputMessage, LLMProvider, OpenAIProvider, ToolResultBlock, ToolResultContent } from "@jay-ai/core";
+import { AgentConfig, AgentStreamEvent } from "./types/agents";
 import { AgentTool } from "./types/tools";
 
-export type ToolExecutionEvent =
-    | { type: "tool_execution_start"; tool_use_id: string; name: string; description?: string; input: Record<string, unknown> }
-    | { type: "tool_execution_update"; tool_use_id: string; text: string }
-    | { type: "tool_execution_end"; tool_use_id: string; name: string; output: ToolResultContent };
-
-export type AgentStreamEvent = AssistantMessageStreamEvent | ToolExecutionEvent;
 
 export class AgentEventStream extends EventStream<AgentStreamEvent, AssistantMessage> { }
 
@@ -57,7 +51,13 @@ export class Agent {
                     })),
                 });
                 for await (const event of stream) {
-                    agentStream.push(event);
+                    if (event.type === "message_start") {
+                        agentStream.push({ type: "message_start" });
+                    } else if (event.type === "message_end") {
+                        agentStream.push({ type: "message_end" });
+                    } else {
+                        agentStream.push({ type: "message_update", assistantMessageEvent: event });
+                    }
                 }
                 const assistantMessage = stream.getFinalOutput();
                 if (assistantMessage) {
