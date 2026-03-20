@@ -1,7 +1,7 @@
 import { Agent, AgentTool } from "@jay-ai/agent";
 import type { ToolResultContent, TextBlock, ImageBlock, DocumentBlock } from "@jay-ai/core";
 import { Type, type Static } from "@sinclair/typebox";
-import { Terminal } from "@jay-ai/tui";
+import { Terminal, createMarkdownRenderer } from "@jay-ai/tui";
 import readTool from "../tools/read";
 import bashTool from "../tools/bash";
 import writeTool from "../tools/write";
@@ -63,6 +63,7 @@ const weatherTool: AgentTool<WeatherInput> = {
 };
 
 export async function runChat(terminal: Terminal): Promise<void> {
+    const renderMarkdown = createMarkdownRenderer(process.stdout.columns ?? 80);
     const agent = new Agent({
         model: "claude-sonnet-4-6",
         modelProvider: "anthropic",
@@ -78,17 +79,21 @@ export async function runChat(terminal: Terminal): Promise<void> {
     terminal.write(`Welcome to Jay AI (Anthropic · ${authSource}). Type a message to get started.\n\n`);
 
     terminal.addEventListener("inputSubmitted", async (event) => {
+        let accumulated = "";
         const stream = agent.run(event.input);
         for await (const ev of stream) {
-            if (ev.type === "text_delta") {
-                terminal.write(ev.text);
+            if (ev.type === "message_update" && ev.assistantMessageEvent.type === "text_delta") {
+                accumulated += ev.assistantMessageEvent.text;
+                terminal.rewrite(renderMarkdown(accumulated));
             } else if (ev.type === "tool_execution_start") {
+                terminal.resetRewrite();
                 terminal.write(`\n${ev.name}${ev.description ? `: ${ev.description}` : ''}\n`);
                 terminal.write(`\nINPUT: ${JSON.stringify(ev.input)}\n`);
             } else if (ev.type === "tool_execution_end") {
                 terminal.write(`OUTPUT: ${renderToolOutput(ev.output)}\n`);
             }
         }
+        terminal.resetRewrite();
         terminal.write("\n");
     });
 }

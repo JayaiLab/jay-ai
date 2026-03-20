@@ -7,6 +7,7 @@ export type TerminalEvents = {
 export class Terminal {
     private emitter: EventTarget<TerminalEvents> = new EventTarget();
     private inputBuffer: string = "";
+    private lastLineCount: number = 0;
 
     constructor() {
         process.stdin.setRawMode(true);
@@ -23,6 +24,18 @@ export class Terminal {
 
     write(text: string) {
         process.stdout.write(text);
+    }
+
+    rewrite(text: string) {
+        if (this.lastLineCount > 0) {
+            process.stdout.write(`\x1b[${this.lastLineCount}A\x1b[0J`);
+        }
+        process.stdout.write(text);
+        this.lastLineCount = text.split("\n").length - 1;
+    }
+
+    resetRewrite() {
+        this.lastLineCount = 0;
     }
 
     onData(data: Buffer) {

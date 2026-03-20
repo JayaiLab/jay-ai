@@ -19,9 +19,12 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@jay-ai/agent": "*"
+    "@jay-ai/agent": "*",
+    "marked": "^15.0.12",
+    "marked-terminal": "^7.3.0"
   },
   "devDependencies": {
+    "@types/marked-terminal": "^6.1.1",
     "esbuild": "^0.27.3",
     "tsx": "^4.19.2",
     "typescript": "*"
