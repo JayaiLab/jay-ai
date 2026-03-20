@@ -80,8 +80,8 @@ export async function runChat(terminal: Terminal): Promise<void> {
     terminal.addEventListener("inputSubmitted", async (event) => {
         const stream = agent.run(event.input);
         for await (const ev of stream) {
-            if (ev.type === "text_delta") {
-                terminal.write(ev.text);
+            if (ev.type === "message_update" && ev.assistantMessageEvent.type === "text_delta") {
+                terminal.write(ev.assistantMessageEvent.text);
             } else if (ev.type === "tool_execution_start") {
                 terminal.write(`\n${ev.name}${ev.description ? `: ${ev.description}` : ''}\n`);
                 terminal.write(`\nINPUT: ${JSON.stringify(ev.input)}\n`);
