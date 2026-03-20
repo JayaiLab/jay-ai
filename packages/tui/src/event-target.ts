@@ -5,7 +5,7 @@ export interface Event {
     readonly type: string;
 }
 
-export type EventListener<TEvents extends Record<string, Event>> = (e: TEvents[keyof TEvents]) => void;
+export type EventListener<TEvents extends Record<string, Event>, TEventType extends keyof TEvents = keyof TEvents> = (e: TEvents[TEventType]) => void;
 
 export class EventTarget<TEvents extends Record<string, Event>> {
     private listeners: Record<string, EventListener<TEvents>[]> = {};
@@ -14,14 +14,14 @@ export class EventTarget<TEvents extends Record<string, Event>> {
         this.listeners = {};
     }
 
-    addEventListener<TEventType extends keyof TEvents & string>(type: TEventType, listener: EventListener<TEvents>) {
+    addEventListener<TEventType extends keyof TEvents & string>(type: TEventType, listener: EventListener<TEvents, TEventType>) {
         if (!this.listeners[type]) {
             this.listeners[type] = [];
         }
-        this.listeners[type].push(listener);
+        this.listeners[type].push(listener as EventListener<TEvents>);
     }
 
-    removeEventListener<TEventType extends keyof TEvents & string>(type: TEventType, listener: EventListener<TEvents>) {
+    removeEventListener<TEventType extends keyof TEvents & string>(type: TEventType, listener: EventListener<TEvents, TEventType>) {
         this.listeners[type] = this.listeners[type].filter(l => l !== listener);
     }
 

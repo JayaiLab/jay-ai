@@ -8,6 +8,7 @@ const options = {
   entryPoints: ['./src/index.ts'],
   bundle: true,
   platform: 'node',
+  packages: 'external',
   loader: { '.ts': 'ts' },
   resolveExtensions: ['.ts'],
   target: 'es2022',

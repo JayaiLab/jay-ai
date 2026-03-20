@@ -63,14 +63,14 @@ export class AnthropicProvider implements LLMProvider {
 
             for await (const event of anthropicStream) {
                 if (event.type === "message_start") {
-                    eventStream.push({ type: "message_start", text: "" });
+                    eventStream.push({ type: "message_start", snapshot: output });
                 } else if (event.type === "content_block_start") {
                     if (event.content_block.type === "text") {
                         output.content.push({ type: "text", text: "" });
-                        eventStream.push({ type: "text_start", index: event.index });
+                        eventStream.push({ type: "text_start", index: event.index, snapshot: output });
                     } else if (event.content_block.type === "thinking") {
                         output.content.push({ type: "thinking", thinking: "", signature: "" });
-                        eventStream.push({ type: "thinking_start", index: event.index });
+                        eventStream.push({ type: "thinking_start", index: event.index, snapshot: output });
                     } else if (event.content_block.type === "tool_use") {
                         output.content.push({
                             type: "tool_use",
@@ -79,33 +79,36 @@ export class AnthropicProvider implements LLMProvider {
                             input: {},
                             input_json: "",
                         } as ToolBlockAccumulator);
-                        eventStream.push({ type: "tool_use_start", index: event.index, id: event.content_block.id, name: event.content_block.name });
+                        eventStream.push({ type: "tool_use_start", index: event.index, id: event.content_block.id, name: event.content_block.name, snapshot: output });
                     }
                 } else if (event.type === "content_block_delta") {
                     if (event.delta.type === "text_delta") {
                         (output.content[event.index] as TextBlock).text += event.delta.text;
-                        eventStream.push({ type: "text_delta", index: event.index, text: event.delta.text });
+                        eventStream.push({ type: "text_delta", index: event.index, text: event.delta.text, snapshot: output });
                     } else if (event.delta.type === "thinking_delta") {
                         (output.content[event.index] as ThinkingBlock).thinking += event.delta.thinking;
-                        eventStream.push({ type: "thinking_delta", index: event.index, thinking: event.delta.thinking });
+                        eventStream.push({ type: "thinking_delta", index: event.index, thinking: event.delta.thinking, snapshot: output });
                     } else if (event.delta.type === "signature_delta") {
                         (output.content[event.index] as ThinkingBlock).signature += event.delta.signature;
-                        eventStream.push({ type: "signature_delta", index: event.index, signature: event.delta.signature });
+                        eventStream.push({ type: "signature_delta", index: event.index, signature: event.delta.signature, snapshot: output });
                     } else if (event.delta.type === "input_json_delta") {
                         (output.content[event.index] as ToolBlockAccumulator).input_json += event.delta.partial_json;
-                        eventStream.push({ type: "tool_input_json_delta", index: event.index, partial_json: event.delta.partial_json });
+                        eventStream.push({ type: "tool_input_json_delta", index: event.index, partial_json: event.delta.partial_json, snapshot: output });
                     }
                 } else if (event.type === "content_block_stop") {
                     const block = output.content[event.index];
                     if (block.type === "tool_use") {
                         block.input = JSON.parse((block as ToolBlockAccumulator).input_json);
                         (block as Partial<ToolBlockAccumulator>).input_json = undefined;
+                    } else if (block.type === "thinking") {
+                        eventStream.push({ type: "thinking_end", index: event.index, snapshot: output });
+                    } else if (block.type === "text") {
+                        eventStream.push({ type: "text_end", index: event.index, snapshot: output });
                     }
                 } else if (event.type === "message_delta") {
-                    // Each streamed response only has exactly one message_delta event
                     output.stop_reason = event.delta.stop_reason as AssistantMessage["stop_reason"];
                 } else if (event.type === "message_stop") {
-                    eventStream.push({ type: "message_end" });
+                    eventStream.push({ type: "message_end", output, snapshot: output });
                     eventStream.setFinalOutput(output);
                     eventStream.close();
                 }

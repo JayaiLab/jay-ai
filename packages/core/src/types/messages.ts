@@ -1,38 +1,59 @@
+
+/**
+ * Every event carries `snapshot` — the accumulated message state up to this point in the stream.
+ * Downstream consumers (e.g. terminal renderers) can use it to re-render the full response on each event
+ * without needing to track incremental deltas themselves.
+ */
 export type AssistantMessageStreamEvent = {
     type: "message_start";
-    text: string;
+    snapshot: AssistantMessage;
 } | {
     type: "message_end";
+    output: AssistantMessage;
+    snapshot: AssistantMessage;
 } | {
     type: "thinking_start";
     index: number;
+    snapshot: AssistantMessage;
 } | {
     type: "tool_use_start";
     index: number;
     id: string;
     name: string;
+    snapshot: AssistantMessage;
 } | {
     type: "text_start";
     index: number;
+    snapshot: AssistantMessage;
 } | {
     type: "text_delta";
     index: number;
     text: string;
+    snapshot: AssistantMessage;
 } | {
     type: "thinking_delta";
     index: number;
     thinking: string;
+    snapshot: AssistantMessage;
 } | {
     type: "signature_delta";
     index: number;
     signature: string;
+    snapshot: AssistantMessage;
+} | {
+    type: "thinking_end";
+    index: number;
+    snapshot: AssistantMessage;
+} | {
+    type: "text_end";
+    index: number;
+    snapshot: AssistantMessage;
 } | {
     type: "tool_input_json_delta";
     index: number;
     partial_json: string;
-} | {
-    type: "thinking_signature_delta";
-}
+    snapshot: AssistantMessage;
+};
 
 export interface TextBlock {
     type: "text";
