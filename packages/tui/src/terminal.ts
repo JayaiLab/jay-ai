@@ -4,14 +4,21 @@ export type TerminalEvents = {
     inputSubmitted: { type: "inputSubmitted", input: string };
 };
 
-export class Terminal extends EventTarget<TerminalEvents> {
+export class Terminal {
+    private emitter: EventTarget<TerminalEvents> = new EventTarget();
     private inputBuffer: string = "";
 
     constructor() {
-        super();
         process.stdin.setRawMode(true);
         process.stdin.on("data", (data: Buffer) => this.onData(data));
-        this.inputBuffer = "";
+    }
+
+    addEventListener<TEventType extends keyof TerminalEvents & string>(type: TEventType, listener: EventListener<TerminalEvents>) {
+        this.emitter.addEventListener(type, listener);
+    }
+
+    removeEventListener<TEventType extends keyof TerminalEvents & string>(type: TEventType, listener: EventListener<TerminalEvents>) {
+        this.emitter.removeEventListener(type, listener);
     }
 
     write(text: string) {
@@ -23,7 +30,7 @@ export class Terminal extends EventTarget<TerminalEvents> {
         if (key === "\x03") process.exit(); // Ctrl+C = exit
         else if (key === "\r") {
             this.write("\n");
-            this.dispatchEvent({ type: "inputSubmitted", input: this.inputBuffer.trim() });
+            this.emitter.dispatchEvent({ type: "inputSubmitted", input: this.inputBuffer.trim() });
             this.inputBuffer = "";
         } else if (key === "\x7f") {
             if (this.inputBuffer.length > 0) {
