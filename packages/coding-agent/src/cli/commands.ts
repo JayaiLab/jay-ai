@@ -1,7 +1,7 @@
 import { program } from "commander";
 import { Terminal } from "@jay-ai/tui";
 import { runLogin } from "../login";
-import { runChat } from "./chat";
+import { ChatMode } from "./chat-mode";
 import { registerModelsCommand } from "./models";
 
 const version = import.meta.env.VERSION ?? "dev";
@@ -31,9 +31,8 @@ registerModelsCommand(program);
 program
     .command("chat", { isDefault: true })
     .description("Start an interactive chat session")
-    .action(async () => {
-        const terminal = new Terminal();
-        await runChat(terminal);
+    .action(() => {
+        new ChatMode().start();
     });
 
 await program.parseAsync();

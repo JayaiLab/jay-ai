@@ -1,4 +1,4 @@
-import { AssistantMessageStreamEvent, ModelConfig, ToolResultContent } from "@jay-ai/core";
+import { AssistantMessage, AssistantMessageStreamEvent, ModelConfig, ToolResultContent } from "@jay-ai/core";
 
 export type ModelProvider = "anthropic" | "openai";
 
@@ -18,8 +18,8 @@ export type ToolExecutionEvent =
 export type AgentStreamEvent =
     // Message lifecycle - emitted for user, assistant, and toolResult messages
     | { type: "message_start" }
-    // Only emitted for assistant messages during streaming
-    | { type: "message_update"; assistantMessageEvent: AssistantMessageStreamEvent }
+    // `streamEvent.snapshot` is the accumulated message state so far — re-render on every message_update.
+    | { type: "message_update"; streamEvent: AssistantMessageStreamEvent }
     | { type: "message_end"; }
     // Tool execution lifecycle
     | ToolExecutionEvent;

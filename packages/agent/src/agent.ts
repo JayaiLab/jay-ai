@@ -51,12 +51,13 @@ export class Agent {
                     })),
                 });
                 for await (const event of stream) {
+                    // console.log('event:', JSON.stringify(event, null, 2));
                     if (event.type === "message_start") {
                         agentStream.push({ type: "message_start" });
                     } else if (event.type === "message_end") {
                         agentStream.push({ type: "message_end" });
                     } else {
-                        agentStream.push({ type: "message_update", assistantMessageEvent: event });
+                        agentStream.push({ type: "message_update", streamEvent: event });
                     }
                 }
                 const assistantMessage = stream.getFinalOutput();

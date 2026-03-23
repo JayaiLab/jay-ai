@@ -135,7 +135,7 @@ export class OpenAIProvider implements LLMProvider {
 
                 if (!started) {
                     started = true;
-                    eventStream.push({ type: "message_start", text: "" });
+                    eventStream.push({ type: "message_start", snapshot: output });
                 }
 
                 const delta = choice.delta;
@@ -144,10 +144,10 @@ export class OpenAIProvider implements LLMProvider {
                     if (textIndex === -1) {
                         textIndex = output.content.length;
                         output.content.push({ type: "text", text: "" });
-                        eventStream.push({ type: "text_start", index: textIndex });
+                        eventStream.push({ type: "text_start", index: textIndex, snapshot: output });
                     }
                     (output.content[textIndex] as TextBlock).text += delta.content;
-                    eventStream.push({ type: "text_delta", index: textIndex, text: delta.content });
+                    eventStream.push({ type: "text_delta", index: textIndex, text: delta.content, snapshot: output });
                 }
 
                 if (delta.tool_calls) {
@@ -156,14 +156,13 @@ export class OpenAIProvider implements LLMProvider {
                             toolAccumulators.set(tc.index, { id: tc.id ?? "", name: tc.function?.name ?? "", args: "" });
                             const contentIndex = output.content.length;
                             output.content.push({ type: "tool_use", id: tc.id ?? "", name: tc.function?.name ?? "", input: {} });
-                            eventStream.push({ type: "tool_use_start", index: contentIndex, id: tc.id ?? "", name: tc.function?.name ?? "" });
+                            eventStream.push({ type: "tool_use_start", index: contentIndex, id: tc.id ?? "", name: tc.function?.name ?? "", snapshot: output });
                         }
                         if (tc.function?.arguments) {
                             const acc = toolAccumulators.get(tc.index)!;
                             acc.args += tc.function.arguments;
-                            // content index = number of text blocks + tool call's position among tool calls
                             const contentIndex = (textIndex === -1 ? 0 : textIndex + 1) + tc.index;
-                            eventStream.push({ type: "tool_input_json_delta", index: contentIndex, partial_json: tc.function.arguments });
+                            eventStream.push({ type: "tool_input_json_delta", index: contentIndex, partial_json: tc.function.arguments, snapshot: output });
                         }
                     }
                 }
@@ -184,7 +183,7 @@ export class OpenAIProvider implements LLMProvider {
                 }
             }
 
-            eventStream.push({ type: "message_end" });
+            eventStream.push({ type: "message_end", output, snapshot: output });
             eventStream.setFinalOutput(output);
             eventStream.close();
         })();

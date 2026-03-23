@@ -1,7 +1,7 @@
 import { Agent, AgentTool } from "@jay-ai/agent";
 import type { ToolResultContent, TextBlock, ImageBlock, DocumentBlock } from "@jay-ai/core";
 import { Type, type Static } from "@sinclair/typebox";
-import { Terminal } from "@jay-ai/tui";
+import { Terminal, renderAssistantMessage } from "@jay-ai/tui";
 import readTool from "../tools/read";
 import bashTool from "../tools/bash";
 import writeTool from "../tools/write";
@@ -62,33 +62,61 @@ const weatherTool: AgentTool<WeatherInput> = {
     },
 };
 
-export async function runChat(terminal: Terminal): Promise<void> {
-    const agent = new Agent({
-        model: "claude-sonnet-4-6",
-        modelProvider: "anthropic",
-        ...resolveAuth(),
-        system: systemPrompt,
-        max_tokens: 16000,
-        thinking: {
-            effort: "high",
-        }
-    }, [weatherTool, readTool, bashTool, writeTool, editTool, grepTool]);
+export class ChatMode {
+    private terminal: Terminal;
+    private agent: Agent;
+    private streamingSnapshot: ReturnType<typeof renderAssistantMessage> | null = null;
 
-    const authSource = loadAuth()?.provider === "anthropic" ? "OAuth token" : "API key";
-    terminal.write(`Welcome to Jay AI (Anthropic · ${authSource}). Type a message to get started.\n\n`);
+    constructor() {
+        this.terminal = new Terminal();
+        this.agent = new Agent({
+            model: "claude-sonnet-4-6",
+            modelProvider: "anthropic",
+            ...resolveAuth(),
+            system: systemPrompt,
+            max_tokens: 16000,
+            thinking: { effort: "high" },
+        }, [weatherTool, readTool, bashTool, writeTool, editTool, grepTool]);
 
-    terminal.addEventListener("inputSubmitted", async (event) => {
-        const stream = agent.run(event.input);
-        for await (const ev of stream) {
-            if (ev.type === "message_update" && ev.assistantMessageEvent.type === "text_delta") {
-                terminal.write(ev.assistantMessageEvent.text);
-            } else if (ev.type === "tool_execution_start") {
-                terminal.write(`\n${ev.name}${ev.description ? `: ${ev.description}` : ''}\n`);
-                terminal.write(`\nINPUT: ${JSON.stringify(ev.input)}\n`);
-            } else if (ev.type === "tool_execution_end") {
-                terminal.write(`OUTPUT: ${renderToolOutput(ev.output)}\n`);
+        this.terminal.addEventListener("resize", () => {
+            if (this.streamingSnapshot !== null) {
+                this.terminal.write("\n");
+                this.terminal.resetRewrite();
+                this.terminal.rewrite(this.streamingSnapshot);
+            }
+        });
+
+        this.terminal.addEventListener("inputSubmitted", (event) => {
+            void this.handleInput(event.input);
+        });
+    }
+
+    start(): void {
+        const authSource = loadAuth()?.provider === "anthropic" ? "OAuth token" : "API key";
+        this.terminal.write(`Welcome to Jay AI (Anthropic · ${authSource}). Type a message to get started.\n\n`);
+    }
+
+    private async handleInput(input: string): Promise<void> {
+        const stream = this.agent.run(input);
+        for await (const event of stream) {
+            switch (event.type) {
+                case "message_start":
+                    this.terminal.resetRewrite();
+                    break;
+                case "message_update":
+                    this.streamingSnapshot = renderAssistantMessage(event.streamEvent.snapshot);
+                    this.terminal.rewrite(this.streamingSnapshot);
+                    break;
+                case "tool_execution_start":
+                    this.terminal.write(`\n${event.name}${event.description ? `: ${event.description}` : ''}\n`);
+                    this.terminal.write(`INPUT: ${JSON.stringify(event.input)}\n`);
+                    break;
+                case "tool_execution_end":
+                    this.terminal.write(`OUTPUT: ${renderToolOutput(event.output)}\n`);
+                    break;
             }
         }
-        terminal.write("\n");
-    });
+        this.streamingSnapshot = null;
+        this.terminal.write("\n");
+    }
 }
