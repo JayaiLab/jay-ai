@@ -3,11 +3,8 @@ import { markedTerminal } from "marked-terminal";
 import { AssistantMessage } from "@jay-ai/core";
 
 // Dim gray for thinking blocks
-const THINKING_PREFIX = "\x1b[2m💭 Thinking\x1b[0m\n\x1b[2m";
+const THINKING_PREFIX = "\x1b[90m💭 Thinking\n";
 const THINKING_SUFFIX = "\x1b[0m";
-
-// Dim for tool use blocks
-const TOOL_USE_PREFIX = "\x1b[33m⚙ \x1b[0m";
 
 let cachedWidth = -1;
 let markedInstance: Marked;
@@ -31,9 +28,6 @@ export function renderAssistantMessage(message: AssistantMessage): string {
                 break;
             case "thinking":
                 parts.push(`${THINKING_PREFIX}${block.thinking}${THINKING_SUFFIX}\n`);
-                break;
-            case "tool_use":
-                parts.push(`${TOOL_USE_PREFIX}${block.name}\n`);
                 break;
         }
     }
