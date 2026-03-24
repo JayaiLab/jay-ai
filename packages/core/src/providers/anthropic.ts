@@ -31,7 +31,15 @@ export class AnthropicProvider implements LLMProvider {
     constructor(private config: ModelConfig) {
         this.client = new Anthropic(
             config.authToken
-                ? { authToken: config.authToken }
+                ? {
+                      apiKey: null,
+                      authToken: config.authToken,
+                      defaultHeaders: {
+                          "anthropic-beta": "claude-code-20250219,oauth-2025-04-20",
+                          "user-agent": "claude-cli/1.0.0",
+                          "x-app": "cli",
+                      },
+                  }
                 : { apiKey: config.apiKey ?? process.env.ANTHROPIC_API_KEY }
         );
     }
@@ -49,9 +57,18 @@ export class AnthropicProvider implements LLMProvider {
             : {};
 
         (async () => {
+            const systemBlocks: Anthropic.Messages.TextBlockParam[] = [];
+            if (config.authToken) {
+                systemBlocks.push({ type: "text", text: "You are Claude Code, Anthropic's official CLI for Claude." });
+            }
+            if (config.system) {
+                systemBlocks.push({ type: "text", text: config.system });
+            }
+            const system = systemBlocks.length > 0 ? systemBlocks : undefined;
+
             const anthropicStream = this.client.messages.stream({
                 model: config.model,
-                system: config.system,
+                system,
                 messages: request.messages as Parameters<typeof this.client.messages.stream>[0]["messages"],
                 tools: request.tools?.map(({ name, description, input_schema }) => ({ name, description, input_schema })),
                 max_tokens: maxTokens,
