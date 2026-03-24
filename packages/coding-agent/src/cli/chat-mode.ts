@@ -1,5 +1,4 @@
 import { Agent, AgentTool } from "@jay-ai/agent";
-import type { ToolResultContent, TextBlock, ImageBlock, DocumentBlock } from "@jay-ai/core";
 import { Type, type Static } from "@sinclair/typebox";
 import { Terminal, renderAssistantMessage } from "@jay-ai/tui";
 import readTool from "../tools/read";
@@ -9,33 +8,7 @@ import editTool from "../tools/edit";
 import grepTool from "../tools/grep";
 import { systemPrompt } from "../system-prompt";
 import { loadAuth } from "../auth";
-
-const OUTPUT_TRUNCATE_CHARS = 500;
-
-function renderToolOutput(output: ToolResultContent): string {
-    if (typeof output === "string") {
-        if (output.length <= OUTPUT_TRUNCATE_CHARS) return output;
-        const lines = output.split("\n");
-        return output.slice(0, OUTPUT_TRUNCATE_CHARS) + `\n... [truncated, ${lines.length} lines total]`;
-    }
-    return output.map((block) => {
-        if ((block as TextBlock).type === "text") {
-            const text = (block as TextBlock).text;
-            if (text.length <= OUTPUT_TRUNCATE_CHARS) return text;
-            const lines = text.split("\n");
-            return text.slice(0, OUTPUT_TRUNCATE_CHARS) + `\n... [truncated, ${lines.length} lines total]`;
-        }
-        if ((block as ImageBlock).type === "image") {
-            const src = (block as ImageBlock).source;
-            return `[image: ${src.type === "base64" ? src.media_type : src.url}]`;
-        }
-        if ((block as DocumentBlock).type === "document") {
-            const doc = block as DocumentBlock;
-            return `[document: ${doc.filename ?? doc.source.media_type}]`;
-        }
-        return `[unknown block]`;
-    }).join("\n");
-}
+import { ToolRendererRegistry } from "./tool-renderers";
 
 function resolveAuth(): { apiKey?: string; authToken?: string } {
     const auth = loadAuth();
@@ -65,6 +38,7 @@ const weatherTool: AgentTool<WeatherInput> = {
 export class ChatMode {
     private terminal: Terminal;
     private agent: Agent;
+    private renderers = new ToolRendererRegistry();
     private streamingSnapshot: ReturnType<typeof renderAssistantMessage> | null = null;
 
     constructor() {
@@ -108,11 +82,10 @@ export class ChatMode {
                     this.terminal.rewrite(this.streamingSnapshot);
                     break;
                 case "tool_execution_start":
-                    this.terminal.write(`\n${event.name}${event.description ? `: ${event.description}` : ''}\n`);
-                    this.terminal.write(`INPUT: ${JSON.stringify(event.input)}\n`);
+                    this.terminal.write(this.renderers.get(event.name).renderStart(event.input));
                     break;
                 case "tool_execution_end":
-                    this.terminal.write(`OUTPUT: ${renderToolOutput(event.output)}\n`);
+                    this.terminal.write(this.renderers.get(event.name).renderEnd(event.output));
                     break;
             }
         }
