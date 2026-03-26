@@ -1,4 +1,4 @@
-import { Agent, AgentTool } from "@jay-ai/agent";
+import { Agent, AgentEventStream, AgentStreamEvent, AgentTool } from "@jay-ai/agent";
 import { Type, type Static } from "@sinclair/typebox";
 import { Terminal, renderAssistantMessage } from "@jay-ai/tui";
 import readTool from "../tools/read";
@@ -39,7 +39,6 @@ export class ChatMode {
     private terminal: Terminal;
     private agent: Agent;
     private renderers = new ToolRendererRegistry();
-    private streamingSnapshot: ReturnType<typeof renderAssistantMessage> | null = null;
 
     constructor() {
         this.terminal = new Terminal();
@@ -53,11 +52,8 @@ export class ChatMode {
         }, [weatherTool, readTool, bashTool, writeTool, editTool, grepTool]);
 
         this.terminal.addEventListener("resize", () => {
-            if (this.streamingSnapshot !== null) {
-                this.terminal.write("\n");
-                this.terminal.resetRewrite();
-                this.terminal.rewrite(this.streamingSnapshot);
-            }
+            this.terminal.write("\n");
+            this.terminal.resetRewrite();
         });
 
         this.terminal.addEventListener("inputSubmitted", (event) => {
@@ -77,9 +73,14 @@ export class ChatMode {
                 case "message_start":
                     this.terminal.resetRewrite();
                     break;
-                case "message_update":
-                    this.streamingSnapshot = renderAssistantMessage(event.streamEvent.snapshot);
-                    this.terminal.rewrite(this.streamingSnapshot);
+                case "message_update": {
+                    // Note: the renderer contains ANSI escape codes.
+                    const rendered = renderAssistantMessage(event.streamEvent.snapshot);
+                    this.terminal.rewrite(rendered);
+                    break;
+                }
+                case "message_end":
+                    this.terminal.resetRewrite();
                     break;
                 case "tool_execution_start":
                     this.terminal.write(this.renderers.get(event.name).renderStart(event.input));
@@ -87,9 +88,9 @@ export class ChatMode {
                 case "tool_execution_end":
                     this.terminal.write(this.renderers.get(event.name).renderEnd(event.output));
                     break;
+
             }
         }
-        this.streamingSnapshot = null;
         this.terminal.write("\n");
     }
 }
