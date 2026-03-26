@@ -3,7 +3,7 @@ import { markedTerminal } from "marked-terminal";
 import { AssistantMessage } from "@jay-ai/core";
 
 // Dim gray for thinking blocks
-const THINKING_PREFIX = "\x1b[90m💭 Thinking\n";
+const THINKING_PREFIX = "\x1b[90m💭 Thinking\n\x1b[90m";
 const THINKING_SUFFIX = "\x1b[0m";
 
 let cachedWidth = -1;
