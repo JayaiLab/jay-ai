@@ -1,3 +1,9 @@
 export { Terminal } from "./terminal";
 export type { TerminalEvents } from "./terminal";
 export { renderAssistantMessage } from "./markdown";
+export { Component, Container } from "./compotent";
+export { UserMessageComponent } from "./components/user-message";
+export { AssistantMessageComponent } from "./components/assistant-message";
+export { ToolExecutionComponent } from "./components/tool-execution";
+export { PromptComponent, CURSOR_MARKER } from "./components/prompt";
+export { WelcomeComponent } from "./components/welcome";

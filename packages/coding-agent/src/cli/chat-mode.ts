@@ -1,6 +1,10 @@
-import { Agent, AgentEventStream, AgentStreamEvent, AgentTool } from "@jay-ai/agent";
+import { Agent, AgentTool } from "@jay-ai/agent";
 import { Type, type Static } from "@sinclair/typebox";
-import { Terminal, renderAssistantMessage } from "@jay-ai/tui";
+import {
+    Terminal, Container,
+    UserMessageComponent, AssistantMessageComponent,
+    ToolExecutionComponent, PromptComponent, WelcomeComponent,
+} from "@jay-ai/tui";
 import readTool from "../tools/read";
 import bashTool from "../tools/bash";
 import writeTool from "../tools/write";
@@ -18,29 +22,19 @@ function resolveAuth(): { apiKey?: string; authToken?: string } {
     return { apiKey: process.env.ANTHROPIC_API_KEY };
 }
 
-const WeatherInput = Type.Object({
-    city: Type.String({ description: "The city name." }),
-});
-
-type WeatherInput = Static<typeof WeatherInput>;
-
-const weatherTool: AgentTool<WeatherInput> = {
-    name: "get_weather",
-    description: "Get the current weather for a city.",
-    input_schema: WeatherInput,
-    func: (input) => {
-        if (input.city === "New York") return "rainy, 50°F";
-        if (input.city === "San Francisco") return "sunny, 60°F";
-        return "sunny, 70°F";
-    },
-};
-
 export class ChatMode {
     private terminal: Terminal;
     private agent: Agent;
     private renderers = new ToolRendererRegistry();
+    private conversation: Container = new Container([]);
+    private prompt: PromptComponent;
+    private root: Container;
+    private currentMessage: AssistantMessageComponent | null = null;
+    private debugMode: boolean = false;
+    private renderCount: number = 0;
 
-    constructor() {
+    constructor(debugMode: boolean = false) {
+        this.debugMode = debugMode;
         this.terminal = new Terminal();
         this.agent = new Agent({
             model: "claude-sonnet-4-6",
@@ -49,48 +43,76 @@ export class ChatMode {
             system: systemPrompt,
             max_tokens: 16000,
             thinking: { effort: "high" },
-        }, [weatherTool, readTool, bashTool, writeTool, editTool, grepTool]);
+        }, [readTool, bashTool, writeTool, editTool, grepTool]);
 
-        this.terminal.addEventListener("resize", () => {
-            this.terminal.write("\n");
-            this.terminal.resetRewrite();
+        this.prompt = new PromptComponent((input) => {
+            void this.handleInput(input);
         });
 
-        this.terminal.addEventListener("inputSubmitted", (event) => {
-            void this.handleInput(event.input);
+        const authSource = loadAuth()?.provider === "anthropic" ? "OAuth token" : "API key";
+        const welcome = new WelcomeComponent(`Welcome to Jay AI (Anthropic · ${authSource}). Type a message to get started.\n`);
+        // if (this.debugMode) {
+        //     welcome.setSuffix(() => `[rendered: ${this.renderCount}]\n`);
+        // }
+
+        this.root = new Container([welcome, this.conversation, this.prompt]);
+
+        this.terminal.setDataHandler((key) => {
+            this.prompt.handleKey(key);
+            this.render();
+        });
+
+        this.terminal.addEventListener("resize", () => {
+            this.render();
         });
     }
 
     start(): void {
-        const authSource = loadAuth()?.provider === "anthropic" ? "OAuth token" : "API key";
-        this.terminal.write(`Welcome to Jay AI (Anthropic · ${authSource}). Type a message to get started.\n\n`);
+        this.render();
+    }
+
+    private render(): void {
+        this.renderCount++;
+        this.terminal.render(this.root);
     }
 
     private async handleInput(input: string): Promise<void> {
+        this.conversation.addChild(new UserMessageComponent(input));
+        this.prompt.setEnabled(false);
+        this.terminal.render(this.root);
+
         const stream = this.agent.run(input);
         for await (const event of stream) {
             switch (event.type) {
                 case "message_start":
-                    this.terminal.resetRewrite();
+                    this.currentMessage = new AssistantMessageComponent();
+                    this.conversation.addChild(this.currentMessage);
                     break;
-                case "message_update": {
-                    // Note: the renderer contains ANSI escape codes.
-                    const rendered = renderAssistantMessage(event.streamEvent.snapshot);
-                    this.terminal.rewrite(rendered);
+                case "message_update":
+                    this.currentMessage!.update(event.streamEvent.snapshot);
+                    break;
+                case "message_end":
+                    this.currentMessage = null;
+                    break;
+                case "tool_execution_start": {
+                    const renderer = this.renderers.get(event.name);
+                    const tool = new ToolExecutionComponent(renderer.renderStart(event.input));
+                    this.conversation.addChild(tool);
                     break;
                 }
-                case "message_end":
-                    this.terminal.resetRewrite();
+                case "tool_execution_end": {
+                    const last = this.conversation.children[this.conversation.children.length - 1];
+                    if (last instanceof ToolExecutionComponent) {
+                        const renderer = this.renderers.get(event.name);
+                        last.setEndText(renderer.renderEnd(event.output));
+                    }
                     break;
-                case "tool_execution_start":
-                    this.terminal.write(this.renderers.get(event.name).renderStart(event.input));
-                    break;
-                case "tool_execution_end":
-                    this.terminal.write(this.renderers.get(event.name).renderEnd(event.output));
-                    break;
-
+                }
             }
+            this.render();
         }
-        this.terminal.write("\n");
+
+        this.prompt.setEnabled(true);
+        this.terminal.render(this.root);
     }
 }

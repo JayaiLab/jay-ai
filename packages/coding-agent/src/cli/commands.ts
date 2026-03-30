@@ -31,8 +31,9 @@ registerModelsCommand(program);
 program
     .command("chat", { isDefault: true })
     .description("Start an interactive chat session")
-    .action(() => {
-        new ChatMode().start();
+    .option("--debug", "Enable debug mode")
+    .action((opts) => {
+        new ChatMode(opts.debug ?? false).start();
     });
 
 await program.parseAsync();

@@ -1,7 +1,13 @@
 import { EventTarget, EventListener } from "./event-target";
+import { Component } from "./compotent";
+import { CURSOR_MARKER } from "./components/prompt";
+
+/** Calculate visible width of a string, stripping ANSI escape sequences. */
+function visibleWidth(str: string): number {
+    return str.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "").replace(/\x1b_.*?\x07/g, "").length;
+}
 
 export type TerminalEvents = {
-    inputSubmitted: { type: "inputSubmitted", input: string };
     resize: { type: "resize", columns: number, rows: number };
 };
 
@@ -17,15 +23,13 @@ export type TerminalEvents = {
  * Key state:
  *   lines[]           – every line written this session (split on \n)
  *   absoluteCursorRow  – which line the cursor sits on (0-indexed from session start)
- *   rewriteStart       – index into lines[] where the rewritable section begins
  */
 export class Terminal {
     private emitter: EventTarget<TerminalEvents> = new EventTarget();
-    private inputBuffer: string = "";
+    private dataHandler: (key: string) => void = this.defaultDataHandler;
 
     private lines: string[] = [""]; // start with one empty line (cursor at row 0)
     private absoluteCursorRow: number = 0;
-    private rewriteStart: number = 0;
 
     constructor() {
         process.stdin.setRawMode(true);
@@ -54,7 +58,6 @@ export class Terminal {
     }
 
     // ── Public API ───────────────────────────────────────────────────────
-
     /** Write text to the terminal. Tracks lines and cursor position. */
     write(text: string): void {
         process.stdout.write(text);
@@ -65,19 +68,11 @@ export class Terminal {
         for (let i = 1; i < parts.length; i++) {
             this.lines.push(parts[i]);
         }
-        this.absoluteCursorRow += parts.length - 1;
+        this.absoluteCursorRow = this.lines.length - 1;
     }
 
     /**
-     * Mark the current position as the start of a rewritable section.
-     * Call this before the first `rewrite()` of a new message.
-     */
-    resetRewrite(): void {
-        this.rewriteStart = this.lines.length - 1;
-    }
-
-    /**
-     * Replace the rewritable section (lines[rewriteStart..]) with `text`.
+     * Replace the entire tracked content with `text`.
      *
      * Only the lines that actually changed are redrawn. For typical streaming
      * (appending tokens), this means writing 0-2 new lines with no cursor
@@ -85,7 +80,7 @@ export class Terminal {
      */
     rewrite(text: string): void {
         const newLines = text.split("\n");
-        const oldLines = this.lines.slice(this.rewriteStart);
+        const oldLines = this.lines;
 
         // Find the first line that differs
         let firstDiff = 0;
@@ -97,12 +92,11 @@ export class Terminal {
         // Nothing changed
         if (firstDiff === oldLines.length && firstDiff === newLines.length) return;
 
-        const changeStartAbsolute = this.rewriteStart + firstDiff;
         const linesToWrite = newLines.slice(firstDiff);
 
-        if (changeStartAbsolute <= this.absoluteCursorRow) {
+        if (firstDiff <= this.absoluteCursorRow) {
             // Changed line is at or above cursor — move up, clear, rewrite
-            const up = this.absoluteCursorRow - changeStartAbsolute;
+            const up = this.absoluteCursorRow - firstDiff;
             if (up > 0) process.stdout.write(`\x1b[${up}A`);
             process.stdout.write("\x1b[G");  // cursor to col 1
             process.stdout.write("\x1b[0J"); // clear to end of screen
@@ -111,45 +105,72 @@ export class Terminal {
             }
         } else {
             // All existing lines match — appending new lines past current cursor
-            const newlineCount = changeStartAbsolute - this.absoluteCursorRow;
-            process.stdout.write("\n".repeat(newlineCount));
+            const newlineCount = firstDiff - this.absoluteCursorRow;
+            process.stdout.write("\r\n".repeat(newlineCount));
             if (linesToWrite.length > 0) {
                 process.stdout.write(linesToWrite.join("\n"));
             }
         }
 
         // Update tracked state
-        this.lines.length = this.rewriteStart;
-        this.lines.push(...newLines);
-        this.absoluteCursorRow = this.rewriteStart + newLines.length - 1;
+        this.lines = newLines;
+        this.absoluteCursorRow = newLines.length - 1;
+    }
+
+    /** Render a component tree, diffing against the previous render. */
+    render(component: Component): void {
+        const text = component.render();
+        const lines = text.split("\n");
+
+        // Extract cursor marker before diffing/writing
+        const cursorPos = this.extractCursorPosition(lines, process.stdout.rows);
+
+        this.rewrite(lines.join("\n"));
+
+        // Move hardware cursor to marker position
+        if (cursorPos) {
+            const cursorRowFromBottom = (this.lines.length - 1) - cursorPos.row;
+            if (cursorRowFromBottom > 0) {
+                process.stdout.write(`\x1b[${cursorRowFromBottom}A`);
+            }
+            process.stdout.write(`\x1b[${cursorPos.col + 1}G`);
+            this.absoluteCursorRow = cursorPos.row;
+        }
+    }
+
+    setDataHandler(handler: (key: string) => void): void {
+        this.dataHandler = handler;
+    }
+
+    /**
+     * Find and extract cursor position from rendered lines.
+     * Searches for CURSOR_MARKER, calculates its position, and strips it from the output.
+     * Only scans the bottom terminal height lines (visible viewport).
+     */
+    private extractCursorPosition(lines: string[], height: number): { row: number; col: number } | null {
+        const viewportTop = Math.max(0, lines.length - height);
+        for (let row = lines.length - 1; row >= viewportTop; row--) {
+            const line = lines[row];
+            const markerIndex = line.indexOf(CURSOR_MARKER);
+            if (markerIndex !== -1) {
+                const beforeMarker = line.slice(0, markerIndex);
+                const col = visibleWidth(beforeMarker);
+                lines[row] = line.slice(0, markerIndex) + line.slice(markerIndex + CURSOR_MARKER.length);
+                return { row, col };
+            }
+        }
+        return null;
     }
 
     // ── Raw input handling ───────────────────────────────────────────────
 
-    onData(data: Buffer) {
+    private onData(data: Buffer) {
         const key = data.toString();
         if (key === "\x03") {
             process.exit(); // Ctrl+C
-        } else if (key === "\r") {
-            // Enter — submit input
-            process.stdout.write("\n");
-            this.lines.push("");
-            this.absoluteCursorRow++;
-            this.emitter.dispatchEvent({
-                type: "inputSubmitted",
-                input: this.inputBuffer.trim(),
-            });
-            this.inputBuffer = "";
-        } else if (key === "\x7f") {
-            // Backspace
-            if (this.inputBuffer.length > 0) {
-                this.inputBuffer = this.inputBuffer.slice(0, -1);
-                process.stdout.write("\b \b");
-            }
-        } else {
-            // Regular character — echo and buffer
-            this.inputBuffer += key;
-            process.stdout.write(key);
         }
+        this.dataHandler(key);
     }
+
+    private defaultDataHandler(key: string): void { }
 }
