@@ -1,9 +1,7 @@
 import fs from "fs";
-import path from "path";
 import type { AgentStreamEvent } from "@jay-ai/agent";
 
-const DEFAULT_FIXTURE = path.join(__dirname, "terminal-stream.jsonl");
-
+const DEFAULT_FIXTURE = `${import.meta.dirname}/terminal-stream.jsonl`;
 export async function* mockStream(
     fixture: string = DEFAULT_FIXTURE,
 ): AsyncGenerator<AgentStreamEvent> {

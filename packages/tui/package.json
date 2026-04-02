@@ -21,7 +21,8 @@
   "dependencies": {
     "@jay-ai/agent": "*",
     "marked": "^15.0.12",
-    "marked-terminal": "^7.3.0"
+    "marked-terminal": "^7.3.0",
+    "string-width": "^8.2.0"
   },
   "devDependencies": {
     "@types/marked-terminal": "^6.1.1",

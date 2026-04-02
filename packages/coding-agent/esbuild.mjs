@@ -3,7 +3,7 @@
 
 import { execSync } from 'child_process';
 import esbuild from 'esbuild';
-import { writeFileSync } from 'fs';
+import { writeFileSync, copyFileSync, mkdirSync, readdirSync } from 'fs';
 import packageJson from './package.json' with { type: 'json' };
 
 let gitHash;
@@ -56,5 +56,11 @@ esbuild
     format: 'esm',
     outfile: './dist/cli.js',
     packages: 'external',
+  })
+  .then(() => {
+    mkdirSync('./dist', { recursive: true });
+    for (const file of readdirSync('./test').filter(f => f.endsWith('.jsonl'))) {
+      copyFileSync(`./test/${file}`, `./dist/${file}`);
+    }
   })
   .catch(console.error);

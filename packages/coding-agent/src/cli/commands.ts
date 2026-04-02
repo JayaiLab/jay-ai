@@ -34,5 +34,18 @@ program
     .action(() => {
         new ChatMode().start();
     });
+program
+    .command("debug")
+    .description("Start an interactive chat session with debug options")
+    .option("--step-through", "Pause after each event, press 'k' to continue")
+    .option("--capture-agent-stream", "Save each agent run to AGENT_STREAM_<timestamp>.jsonl")
+    .option("--tui-debug", "Emit debug logs to /tmp/jayai-debug.log in real time")
+    .action((opts) => {
+        new ChatMode(true, {
+            stepThrough: opts.stepThrough ?? false,
+            captureAgentStream: opts.captureAgentStream ?? false,
+            tuiDebug: opts.tuiDebug ?? false,
+        }).start();
+    });
 
 await program.parseAsync();

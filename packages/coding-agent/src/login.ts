@@ -1,18 +1,28 @@
 import { anthropicOAuthProvider } from "@jay-ai/core";
 import type { OAuthProviderInterface } from "@jay-ai/core";
 import { Terminal } from "@jay-ai/tui";
-import type { TerminalEvents } from "@jay-ai/tui";
 import { saveAuth } from "./auth.js";
 
 const PROVIDERS: OAuthProviderInterface[] = [anthropicOAuthProvider];
 
 function waitForInput(terminal: Terminal): Promise<string> {
     return new Promise<string>((resolve) => {
-        const handler = (event: TerminalEvents["inputSubmitted"]) => {
-            terminal.removeEventListener("inputSubmitted", handler);
-            resolve(event.input);
-        };
-        terminal.addEventListener("inputSubmitted", handler);
+        let buffer = "";
+        terminal.setDataHandler((key: string) => {
+            if (key === "\r") {
+                terminal.write("\n");
+                terminal.setDataHandler(() => {});
+                resolve(buffer.trim());
+            } else if (key === "\x7f") {
+                if (buffer.length > 0) {
+                    buffer = buffer.slice(0, -1);
+                    process.stdout.write("\b \b");
+                }
+            } else {
+                buffer += key;
+                process.stdout.write(key);
+            }
+        });
     });
 }
 
