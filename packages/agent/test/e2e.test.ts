@@ -1,5 +1,5 @@
 import { Agent } from "../src/agent";
-import { Tool } from "../src/types/tools";
+import { AgentTool } from "../src/types/tools";
 
 function getWeather(city: string): string {
     if (city === "New York") {
@@ -11,7 +11,7 @@ function getWeather(city: string): string {
     }
 }
 
-const weatherTool: Tool = {
+const weatherTool: AgentTool = {
     name: "get_weather",
     description: "Get the current weather for a city.",
     input_schema: {
