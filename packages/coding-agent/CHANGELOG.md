@@ -1,5 +1,15 @@
 # @jay-ai/coding-agent
 
+## 0.0.4
+
+### Patch Changes
+
+- bb50809: Add MIT license field to all packages
+- Updated dependencies [bb50809]
+  - @jay-ai/agent@0.0.4
+  - @jay-ai/core@0.0.4
+  - @jay-ai/tui@0.0.4
+
 ## 0.0.3
 
 ### Patch Changes
