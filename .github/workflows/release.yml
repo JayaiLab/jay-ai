@@ -48,7 +48,16 @@ jobs:
           git diff --staged --quiet || git commit -m "chore: version packages"
 
       - name: Publish to npm
-        run: npx changeset publish
+        id: publish
+        run: npx changeset publish 2>&1 | tee publish-output.txt
 
       - name: Push changes and tags
         run: git push --follow-tags
+
+      - name: Create GitHub Releases
+        run: |
+          grep "New tag:" publish-output.txt | awk '{print $NF}' | while read tag; do
+            gh release create "$tag" --title "$tag" --generate-notes --verify-tag
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
