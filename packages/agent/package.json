@@ -31,5 +31,8 @@
   },
   "dependencies": {
     "@jay-ai/core": "*"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
