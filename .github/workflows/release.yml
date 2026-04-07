@@ -28,9 +28,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
-        run: npm run build
-
       - name: Audit dependencies
         run: npm audit --audit-level=high
 
@@ -46,6 +43,9 @@ jobs:
         run: |
           git add -A
           git diff --staged --quiet || git commit -m "chore: version packages"
+
+      - name: Build
+        run: npm run build
 
       - name: Publish to npm
         id: publish
