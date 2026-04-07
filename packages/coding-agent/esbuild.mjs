@@ -56,6 +56,7 @@ esbuild
     format: 'esm',
     outfile: './dist/cli.js',
     packages: 'external',
+    banner: { js: '#!/usr/bin/env node' },
   })
   .then(() => {
     mkdirSync('./dist', { recursive: true });
