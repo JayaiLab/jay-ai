@@ -39,13 +39,13 @@ jobs:
       - name: Version packages
         run: npx changeset version
 
+      - name: Build
+        run: npm run build
+
       - name: Commit version changes
         run: |
           git add -A
           git diff --staged --quiet || git commit -m "chore: version packages"
-
-      - name: Build
-        run: npm run build
 
       - name: Publish to npm
         id: publish
