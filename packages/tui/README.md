@@ -28,4 +28,4 @@ import { Terminal, AssistantMessageComponent } from "@jay-ai/tui";
 
 ## Requirements
 
-Node.js >= 20
+Node.js >= 24

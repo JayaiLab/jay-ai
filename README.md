@@ -13,7 +13,7 @@ A minimalistic AI framework with a coding agent at its core.
 
 ## Development
 
-**Prerequisites:** Node.js >= 20, npm >= 10
+**Prerequisites:** Node.js >= 24, npm >= 10
 
 ```bash
 # Install dependencies

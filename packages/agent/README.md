@@ -28,4 +28,4 @@ for await (const event of stream) {
 
 ## Requirements
 
-Node.js >= 20
+Node.js >= 24

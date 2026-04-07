@@ -24,4 +24,4 @@ import { AnthropicProvider, OpenAIProvider } from "@jay-ai/core";
 
 ## Requirements
 
-Node.js >= 20
+Node.js >= 24
