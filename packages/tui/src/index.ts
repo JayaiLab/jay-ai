@@ -8,3 +8,5 @@ export { ToolExecutionComponent } from "./components/tool-execution";
 export { PromptComponent, CURSOR_MARKER } from "./components/prompt";
 export { WelcomeComponent } from "./components/welcome";
 export { debugLog } from "./debug-log";
+export { selectFromOptions } from "./utils/select";
+export type { SelectOption } from "./utils/select";
