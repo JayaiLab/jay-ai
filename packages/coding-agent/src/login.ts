@@ -1,6 +1,6 @@
 import { anthropicOAuthProvider } from "@jay-ai/core";
 import type { OAuthProviderInterface } from "@jay-ai/core";
-import { Terminal } from "@jay-ai/tui";
+import { Terminal, selectFromOptions } from "@jay-ai/tui";
 import { saveAuth } from "./auth.js";
 
 const PROVIDERS: OAuthProviderInterface[] = [anthropicOAuthProvider];
@@ -27,17 +27,9 @@ function waitForInput(terminal: Terminal): Promise<string> {
 }
 
 export async function runLogin(terminal: Terminal): Promise<void> {
-    terminal.write("Select an OAuth provider:\n\n");
-    PROVIDERS.forEach((p, i) => terminal.write(`  ${i + 1}. ${p.name}\n`));
-    terminal.write("\n> ");
-
-    const choice = await waitForInput(terminal);
-    const index = parseInt(choice.trim(), 10) - 1;
-    const provider = PROVIDERS[index];
-    if (!provider) {
-        terminal.write("Invalid selection.\n");
-        process.exit(1);
-    }
+    terminal.write("Select an OAuth provider:\n");
+    const i = await selectFromOptions(terminal, PROVIDERS.map(p => ({ label: p.name })));
+    const provider = PROVIDERS[i];
 
     terminal.write(`\nLogging in with ${provider.name}...\n\n`);
 
