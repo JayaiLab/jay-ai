@@ -9,6 +9,7 @@ function createProvider(config: AgentConfig): LLMProvider {
     switch (config.modelProvider) {
         case "anthropic": return new AnthropicProvider(config);
         case "openai": return new OpenAIProvider(config);
+        case "openai-codex": return new OpenAIProvider(config);
     }
 }
 
