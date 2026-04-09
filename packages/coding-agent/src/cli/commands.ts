@@ -72,9 +72,12 @@ program
         }).start();
     });
 
-program.on("command:*", () => {
-    console.error(`Unknown command: ${program.args.join(" ")}\nRun 'jayai --help' to see available commands.`);
-    process.exit(1);
+program.action(() => {
+    if (program.args.length) {
+        console.error(`Unknown command: ${program.args.join(" ")}\nRun 'jayai --help' to see available commands.`);
+        process.exit(1);
+    }
+    new ChatMode(requireAuth()).start();
 });
 
 export async function main(args: string[]) {

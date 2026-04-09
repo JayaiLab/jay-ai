@@ -21,5 +21,7 @@ export type AgentStreamEvent =
     // `streamEvent.snapshot` is the accumulated message state so far — re-render on every message_update.
     | { type: "message_update"; streamEvent: AssistantMessageStreamEvent }
     | { type: "message_end"; }
+    // Error events — emitted when the provider returns an error (e.g. rate limit)
+    | { type: "error"; error: unknown }
     // Tool execution lifecycle
     | ToolExecutionEvent;

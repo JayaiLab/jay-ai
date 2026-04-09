@@ -115,77 +115,81 @@ export class OpenAIProvider implements LLMProvider {
         const { config } = this;
 
         (async () => {
-            const openaiStream = await this.client.chat.completions.create({
-                model: config.model,
-                messages: this.buildMessages(request.messages),
-                ...(request.tools && request.tools.length > 0 ? { tools: this.buildTools(request.tools) } : {}),
-                ...(config.max_tokens ? { max_tokens: config.max_tokens } : {}),
-                ...(config.thinking?.effort ? { reasoning_effort: config.thinking.effort } : {}),
-                stream: true,
-            });
+            try {
+                const openaiStream = await this.client.chat.completions.create({
+                    model: config.model,
+                    messages: this.buildMessages(request.messages),
+                    ...(request.tools && request.tools.length > 0 ? { tools: this.buildTools(request.tools) } : {}),
+                    ...(config.max_tokens ? { max_tokens: config.max_tokens } : {}),
+                    ...(config.thinking?.effort ? { reasoning_effort: config.thinking.effort } : {}),
+                    stream: true,
+                });
 
-            const output: AssistantMessage = { role: "assistant", content: [] };
-            const toolAccumulators: Map<number, { id: string; name: string; args: string }> = new Map();
-            let textIndex = -1;
-            let started = false;
+                const output: AssistantMessage = { role: "assistant", content: [] };
+                const toolAccumulators: Map<number, { id: string; name: string; args: string }> = new Map();
+                let textIndex = -1;
+                let started = false;
 
-            for await (const chunk of openaiStream) {
-                const choice = chunk.choices[0];
-                if (!choice) continue;
+                for await (const chunk of openaiStream) {
+                    const choice = chunk.choices[0];
+                    if (!choice) continue;
 
-                if (!started) {
-                    started = true;
-                    eventStream.push({ type: "message_start", snapshot: output });
-                }
-
-                const delta = choice.delta;
-
-                if (delta.content) {
-                    if (textIndex === -1) {
-                        textIndex = output.content.length;
-                        output.content.push({ type: "text", text: "" });
-                        eventStream.push({ type: "text_start", index: textIndex, snapshot: output });
+                    if (!started) {
+                        started = true;
+                        eventStream.push({ type: "message_start", snapshot: output });
                     }
-                    (output.content[textIndex] as TextBlock).text += delta.content;
-                    eventStream.push({ type: "text_delta", index: textIndex, text: delta.content, snapshot: output });
-                }
 
-                if (delta.tool_calls) {
-                    for (const tc of delta.tool_calls) {
-                        if (!toolAccumulators.has(tc.index)) {
-                            toolAccumulators.set(tc.index, { id: tc.id ?? "", name: tc.function?.name ?? "", args: "" });
-                            const contentIndex = output.content.length;
-                            output.content.push({ type: "tool_use", id: tc.id ?? "", name: tc.function?.name ?? "", input: {} });
-                            eventStream.push({ type: "tool_use_start", index: contentIndex, id: tc.id ?? "", name: tc.function?.name ?? "", snapshot: output });
+                    const delta = choice.delta;
+
+                    if (delta.content) {
+                        if (textIndex === -1) {
+                            textIndex = output.content.length;
+                            output.content.push({ type: "text", text: "" });
+                            eventStream.push({ type: "text_start", index: textIndex, snapshot: output });
                         }
-                        if (tc.function?.arguments) {
-                            const acc = toolAccumulators.get(tc.index)!;
-                            acc.args += tc.function.arguments;
-                            const contentIndex = (textIndex === -1 ? 0 : textIndex + 1) + tc.index;
-                            eventStream.push({ type: "tool_input_json_delta", index: contentIndex, partial_json: tc.function.arguments, snapshot: output });
+                        (output.content[textIndex] as TextBlock).text += delta.content;
+                        eventStream.push({ type: "text_delta", index: textIndex, text: delta.content, snapshot: output });
+                    }
+
+                    if (delta.tool_calls) {
+                        for (const tc of delta.tool_calls) {
+                            if (!toolAccumulators.has(tc.index)) {
+                                toolAccumulators.set(tc.index, { id: tc.id ?? "", name: tc.function?.name ?? "", args: "" });
+                                const contentIndex = output.content.length;
+                                output.content.push({ type: "tool_use", id: tc.id ?? "", name: tc.function?.name ?? "", input: {} });
+                                eventStream.push({ type: "tool_use_start", index: contentIndex, id: tc.id ?? "", name: tc.function?.name ?? "", snapshot: output });
+                            }
+                            if (tc.function?.arguments) {
+                                const acc = toolAccumulators.get(tc.index)!;
+                                acc.args += tc.function.arguments;
+                                const contentIndex = (textIndex === -1 ? 0 : textIndex + 1) + tc.index;
+                                eventStream.push({ type: "tool_input_json_delta", index: contentIndex, partial_json: tc.function.arguments, snapshot: output });
+                            }
                         }
+                    }
+
+                    if (choice.finish_reason) {
+                        output.stop_reason = choice.finish_reason === "tool_calls" ? "tool_use"
+                            : choice.finish_reason === "length" ? "max_tokens"
+                                : "end_turn";
                     }
                 }
 
-                if (choice.finish_reason) {
-                    output.stop_reason = choice.finish_reason === "tool_calls" ? "tool_use"
-                        : choice.finish_reason === "length" ? "max_tokens"
-                            : "end_turn";
+                // parse accumulated tool call args into input objects
+                for (const [idx, acc] of toolAccumulators) {
+                    const contentIndex = (textIndex === -1 ? 0 : textIndex + 1) + idx;
+                    const block = output.content[contentIndex] as ToolUseBlock | undefined;
+                    if (block) {
+                        block.input = JSON.parse(acc.args || "{}");
+                    }
                 }
-            }
 
-            // parse accumulated tool call args into input objects
-            for (const [idx, acc] of toolAccumulators) {
-                const contentIndex = (textIndex === -1 ? 0 : textIndex + 1) + idx;
-                const block = output.content[contentIndex] as ToolUseBlock | undefined;
-                if (block) {
-                    block.input = JSON.parse(acc.args || "{}");
-                }
+                eventStream.push({ type: "message_end", output, snapshot: output });
+                eventStream.setFinalOutput(output);
+                eventStream.close();
+            } catch (error) {
+                eventStream.abort(error);
             }
-
-            eventStream.push({ type: "message_end", output, snapshot: output });
-            eventStream.setFinalOutput(output);
-            eventStream.close();
         })();
 
         return eventStream;
