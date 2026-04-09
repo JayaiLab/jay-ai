@@ -1,9 +1,9 @@
 import { Component } from "../compotent";
-import { CURSOR_MARKER } from "./prompt";
 
 /**
  * A single-line text input component for use within the component tree.
  * Used for inline text entry (e.g., pasting an auth code during login).
+ * Does not emit CURSOR_MARKER — the hardware cursor stays hidden while this is active.
  */
 export class InputComponent implements Component {
     private buffer: string = "";
@@ -64,8 +64,6 @@ export class InputComponent implements Component {
         if (this.resolved) {
             return [`${this.label}${this.buffer}`];
         }
-        const before = this.buffer.slice(0, this.cursorPos);
-        const after = this.buffer.slice(this.cursorPos);
-        return [`${this.label}${before}${CURSOR_MARKER}${after}`];
+        return [`${this.label}${this.buffer}`];
     }
 }

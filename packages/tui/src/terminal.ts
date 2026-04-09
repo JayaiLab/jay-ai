@@ -41,6 +41,13 @@ export class Terminal {
                 rows: process.stdout.rows,
             });
         });
+
+        const cleanup = () => {
+            process.stdout.write("\x1b[?25h"); // restore cursor. Without this, the cursor will stay hidden after the program exits.
+        };
+        process.on("exit", cleanup);
+        process.on("SIGINT", () => { cleanup(); process.exit(); });
+        process.on("SIGTERM", () => { cleanup(); process.exit(); });
     }
     clearScreen(): void {
         process.stdout.write("\x1b[H\x1b[2J"); // clear screen and move cursor to top left
@@ -137,7 +144,10 @@ export class Terminal {
                 this.fullRender(newRows);
                 // After fullRender, the cursor is at the last row. Move it back to the prompt's input row.
                 if (cursorPos) {
+                    process.stdout.write("\x1b[?25h");
                     this.positionHardwareCursor(cursorPos, newRows.length);
+                } else {
+                    process.stdout.write("\x1b[?25l");
                 }
                 return;
             } else {
@@ -185,7 +195,10 @@ export class Terminal {
 
         // Step 4. Move the cursor position back to the marked position.
         if (cursorPos) {
+            process.stdout.write("\x1b[?25h"); // show cursor
             this.positionHardwareCursor(cursorPos, newRows.length);
+        } else {
+            process.stdout.write("\x1b[?25l"); // hide cursor
         }
         this.lines = newRows;
     }
@@ -250,19 +263,24 @@ export class Terminal {
      */
     private extractCursorPosition(rows: string[], height: number, stripMarker: boolean): { row: number; col: number } | null {
         const viewportTop = Math.max(0, rows.length - height);
-        for (let row = rows.length - 1; row >= viewportTop; row--) {
+        let cursorPos: { row: number; col: number } | null = null;
+        // Scan ALL rows to strip markers, not just the viewport — unstripped
+        // markers outside the viewport leak as visible "pi:c" text.
+        for (let row = rows.length - 1; row >= 0; row--) {
             const line = rows[row];
             const markerIndex = line.indexOf(CURSOR_MARKER);
             if (markerIndex !== -1) {
-                const beforeMarker = line.slice(0, markerIndex);
-                const col = visibleWidth(beforeMarker);
+                if (!cursorPos && row >= viewportTop) {
+                    const beforeMarker = line.slice(0, markerIndex);
+                    const col = visibleWidth(beforeMarker);
+                    cursorPos = { row, col };
+                }
                 if (stripMarker) {
                     rows[row] = line.slice(0, markerIndex) + line.slice(markerIndex + CURSOR_MARKER.length);
                 }
-                return { row, col };
             }
         }
-        return null;
+        return cursorPos;
     }
 
     // ── Raw input handling ───────────────────────────────────────────────

@@ -1,6 +1,6 @@
 import { AssistantMessage, AssistantMessageStreamEvent, ModelConfig, ToolResultContent } from "@jay-ai/core";
 
-export type ModelProvider = "anthropic" | "openai";
+export type ModelProvider = "anthropic" | "openai" | "openai-codex";
 
 export interface AgentConfig extends ModelConfig {
     modelProvider: ModelProvider;

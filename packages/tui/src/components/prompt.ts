@@ -45,6 +45,7 @@ export class PromptComponent implements Component {
     }
 
     render(width: number): string[] {
+        if (!this.enabled) return [];
         const divider = `\x1b[94m${"─".repeat(width)}\x1b[0m`;
         const before = this.inputBuffer.slice(0, this.cursorPos);
         const after = this.inputBuffer.slice(this.cursorPos);

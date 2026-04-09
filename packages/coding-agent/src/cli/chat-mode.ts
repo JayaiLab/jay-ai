@@ -1,4 +1,4 @@
-import { Agent } from "@jay-ai/agent";
+import { Agent, ModelProvider } from "@jay-ai/agent";
 import {
     Terminal, Container,
     UserMessageComponent, AssistantMessageComponent,
@@ -15,11 +15,10 @@ import { systemPrompt } from "../system-prompt";
 import { loadAuth, saveAuth } from "../auth";
 import { loadSettings, saveSettings } from "../settings";
 import { ToolRendererRegistry } from "./tool-renderers";
-import { ALL_MODELS } from "./models";
-import { anthropicOAuthProvider } from "@jay-ai/core";
+import { getAuthenticatedModels } from "./models";
+import { anthropicOAuthProvider, openaiCodexOAuthProvider } from "@jay-ai/core";
 import type { OAuthProviderInterface } from "@jay-ai/core";
 import fs from "fs";
-import { mockStream } from "../../test/mock-stream";
 
 export type DebugConfig = {
     stepThrough?: boolean;   // pause after each event, press 'k' to continue
@@ -49,21 +48,22 @@ function formatProviderError(err: unknown): string {
 
 type ResolvedAuth = {
     model: string;
-    modelProvider: "anthropic" | "openai";
+    modelProvider: ModelProvider;
     apiKey?: string;
     authToken?: string;
 };
 
+/** Map model provider to OAuth provider ID. */
 export function resolveAuth(): ResolvedAuth | null {
-    const auth = loadAuth();
-    if (!auth?.provider || !auth.credentials.access) return null;
-
     const settings = loadSettings();
     if (!settings.model || !settings.modelProvider) return null;
 
+    const auth = loadAuth(settings.modelProvider);
+    if (!auth) return null;
+
     return {
         model: settings.model,
-        modelProvider: settings.modelProvider as "anthropic" | "openai",
+        modelProvider: settings.modelProvider,
         authToken: auth.credentials.access,
     };
 }
@@ -147,7 +147,7 @@ export class ChatMode {
     private async handleLoginCommand(): Promise<void> {
         this.prompt.setEnabled(false);
 
-        const PROVIDERS: OAuthProviderInterface[] = [anthropicOAuthProvider];
+        const PROVIDERS: OAuthProviderInterface[] = [anthropicOAuthProvider, openaiCodexOAuthProvider];
         const cmdComponent = new CommandExecutionComponent("/login");
         this.conversation.addChild(cmdComponent);
 
@@ -171,16 +171,19 @@ export class ChatMode {
         cmdComponent.addLine(`Logging in with ${provider.name}...`);
         this.render();
 
+        const inputComponent = new InputComponent("> ");
+        const authComponent = new CommandExecutionComponent("");
         try {
-            const inputComponent = new InputComponent("> ");
             const credentials = await provider.login({
                 onAuth: ({ url }) => {
-                    cmdComponent.addLine("");
-                    cmdComponent.addLine("Open this URL in your browser:");
-                    cmdComponent.addLine(`  ${url}`);
-                    cmdComponent.addLine("");
-                    cmdComponent.addLine("After authorizing, paste the code below:");
-                    cmdComponent.addChild(inputComponent);
+                    cmdComponent.setVisible(false);
+                    this.conversation.addChild(authComponent);
+                    authComponent.addLine("");
+                    authComponent.addLine("Open this URL in your browser:");
+                    authComponent.addLine(`  ${url}`);
+                    authComponent.addLine("");
+                    authComponent.addLine("After authorizing, paste the code below:");
+                    authComponent.addChild(inputComponent);
                     this.terminal.setDataHandler((key) => {
                         inputComponent.handleKey(key);
                         this.render();
@@ -190,13 +193,24 @@ export class ChatMode {
                 onPrompt: () => inputComponent.waitForInput(),
             });
 
+            authComponent.removeChild(inputComponent);
             await saveAuth({ provider: provider.id, credentials });
-            cmdComponent.addLine("");
-            cmdComponent.addLine(`Credentials saved to ~/.jayai/auth.json`);
-            cmdComponent.addLine(`Access token expires at ${new Date(credentials.expires).toLocaleString()}`);
+            const newAuth = resolveAuth();
+            if (newAuth) {
+                this.agent = new Agent({
+                    ...newAuth,
+                    system: systemPrompt,
+                    max_tokens: 16000,
+                    thinking: { effort: "high" },
+                }, [readTool, bashTool, writeTool, editTool, grepTool]);
+            }
+            authComponent.addLine("");
+            authComponent.addLine(`Credentials saved to ~/.jayai/auth.json`);
+            authComponent.addLine(`Access token expires at ${new Date(credentials.expires).toLocaleString()}`);
         } catch (err) {
-            cmdComponent.addLine("");
-            cmdComponent.addLine(`\x1b[31mLogin failed: ${err instanceof Error ? err.message : String(err)}\x1b[0m`);
+            authComponent.removeChild(inputComponent);
+            authComponent.addLine("");
+            authComponent.addLine(`\x1b[31mLogin failed: ${err instanceof Error ? err.message : String(err)}\x1b[0m`);
         }
 
         this.prompt.setEnabled(true);
@@ -210,9 +224,18 @@ export class ChatMode {
         const cmdComponent = new CommandExecutionComponent("/model");
         this.conversation.addChild(cmdComponent);
 
+        const availableModels = getAuthenticatedModels();
+        if (availableModels.length === 0) {
+            cmdComponent.addLine("No authenticated providers. Run /login first.");
+            this.prompt.setEnabled(true);
+            this.restoreDataHandler();
+            this.render();
+            return;
+        }
+
         const modelSelect = new SelectComponent(
             "Select a model:",
-            ALL_MODELS.map(m => ({
+            availableModels.map(m => ({
                 label: m.id,
                 description: `${m.description} (${m.provider})`,
             })),
@@ -225,7 +248,7 @@ export class ChatMode {
         this.render();
 
         const modelIndex = await modelSelect.waitForSelection();
-        const chosen = ALL_MODELS[modelIndex];
+        const chosen = availableModels[modelIndex];
         saveSettings({ ...loadSettings(), model: chosen.id, modelProvider: chosen.provider });
 
         cmdComponent.addLine("");

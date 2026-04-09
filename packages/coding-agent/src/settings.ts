@@ -1,12 +1,13 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { ModelProvider } from "@jay-ai/agent";
 
 const SETTINGS_FILE = path.join(os.homedir(), ".jayai", "settings.json");
 
 export interface Settings {
     model?: string;
-    modelProvider?: string;
+    modelProvider?: ModelProvider;
 }
 
 export function loadSettings(): Settings {
