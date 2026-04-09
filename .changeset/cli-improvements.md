@@ -1,16 +1,14 @@
 ---
-"@jay-ai/coding-agent": minor
+"@jay-ai/core": minor
+"@jay-ai/agent": minor
 "@jay-ai/tui": minor
+"@jay-ai/coding-agent": minor
 ---
 
-Add interactive model selection, settings persistence, CLI error handling, and reusable select dropdown
+In-session /login and /model commands with multi-provider OAuth
 
-- Add `jayai model` command with interactive dropdown to select LLM model/provider
-- Store model selection in `~/.jayai/settings.json`
-- Require authentication and model selection before starting chat
-- Add proper error handling for LLM provider stream failures
-- Add `/command` support during chat sessions (e.g., `/login`)
-- Create dedicated CLI entry point with proxy support
-- Extract reusable `selectFromOptions` utility to TUI package
-- Replace number-based login provider selection with dropdown UI
-- Show unknown command error instead of defaulting to chat
+- Support running /login and /model during a live chat session
+- Add OpenAI Codex OAuth provider with PKCE flow and local callback server
+- Store multiple provider credentials in auth.json with auto-migration
+- Filter model selection to only show authenticated providers
+- Fix cursor marker leaking as visible text, cursor visibility, and line wrapping
