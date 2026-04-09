@@ -38,54 +38,58 @@ export class Agent {
         });
         const agentStream = new AgentEventStream();
         (async () => {
-            let loop_number = 0;
-            const max_loops = 100;
-            while (loop_number < max_loops) {
-                loop_number++;
-                const stream = this.provider.stream({
-                    messages: this.messages,
-                    tools: Object.values(this.tools).map(({ name, description, input_schema }) => ({
-                        name,
-                        description,
-                        input_schema,
-                    })),
-                });
-                for await (const event of stream) {
-                    // console.log('event:', JSON.stringify(event, null, 2));
-                    if (event.type === "message_start") {
-                        agentStream.push({ type: "message_start" });
-                    } else if (event.type === "message_end") {
-                        agentStream.push({ type: "message_end" });
-                    } else {
-                        agentStream.push({ type: "message_update", streamEvent: event });
-                    }
-                }
-                const assistantMessage = stream.getFinalOutput();
-                if (assistantMessage) {
-                    this.messages.push({
-                        role: assistantMessage.role,
-                        content: assistantMessage.content,
+            try {
+                let loop_number = 0;
+                const max_loops = 100;
+                while (loop_number < max_loops) {
+                    loop_number++;
+                    const stream = this.provider.stream({
+                        messages: this.messages,
+                        tools: Object.values(this.tools).map(({ name, description, input_schema }) => ({
+                            name,
+                            description,
+                            input_schema,
+                        })),
                     });
-                }
-                if (assistantMessage?.stop_reason === "tool_use") {
-                    const toolResults: ToolResultBlock[] = [];
-                    for (const content of assistantMessage.content) {
-                        if (content.type !== "tool_use") continue;
-                        agentStream.push({ type: "tool_execution_start", tool_use_id: content.id, name: content.name, description: this.getToolHumanReadableName(content.input), input: content.input });
-                        const toolOutput = await this.callTool(content.name, content.input, (text) => {
-                            agentStream.push({ type: "tool_execution_update", tool_use_id: content.id, text });
-                        });
-                        agentStream.push({ type: "tool_execution_end", tool_use_id: content.id, name: content.name, output: toolOutput });
-                        toolResults.push({ type: "tool_result", tool_use_id: content.id, content: toolOutput });
+                    for await (const event of stream) {
+                        // console.log('event:', JSON.stringify(event, null, 2));
+                        if (event.type === "message_start") {
+                            agentStream.push({ type: "message_start" });
+                        } else if (event.type === "message_end") {
+                            agentStream.push({ type: "message_end" });
+                        } else {
+                            agentStream.push({ type: "message_update", streamEvent: event });
+                        }
                     }
-                    // Anthropic requires the tool results to be combined into a single user message.
-                    this.messages.push({ role: "user", content: toolResults });
-                } else if (
-                    assistantMessage?.stop_reason === "end_turn" ||
-                    assistantMessage?.stop_reason === "max_tokens"
-                ) {
-                    break;
+                    const assistantMessage = stream.getFinalOutput();
+                    if (assistantMessage) {
+                        this.messages.push({
+                            role: assistantMessage.role,
+                            content: assistantMessage.content,
+                        });
+                    }
+                    if (assistantMessage?.stop_reason === "tool_use") {
+                        const toolResults: ToolResultBlock[] = [];
+                        for (const content of assistantMessage.content) {
+                            if (content.type !== "tool_use") continue;
+                            agentStream.push({ type: "tool_execution_start", tool_use_id: content.id, name: content.name, description: this.getToolHumanReadableName(content.input), input: content.input });
+                            const toolOutput = await this.callTool(content.name, content.input, (text) => {
+                                agentStream.push({ type: "tool_execution_update", tool_use_id: content.id, text });
+                            });
+                            agentStream.push({ type: "tool_execution_end", tool_use_id: content.id, name: content.name, output: toolOutput });
+                            toolResults.push({ type: "tool_result", tool_use_id: content.id, content: toolOutput });
+                        }
+                        // Anthropic requires the tool results to be combined into a single user message.
+                        this.messages.push({ role: "user", content: toolResults });
+                    } else if (
+                        assistantMessage?.stop_reason === "end_turn" ||
+                        assistantMessage?.stop_reason === "max_tokens"
+                    ) {
+                        break;
+                    }
                 }
+            } catch (error) {
+                agentStream.push({ type: "error", error });
             }
             agentStream.close();
         })();

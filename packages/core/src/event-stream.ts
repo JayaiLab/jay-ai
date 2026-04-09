@@ -1,7 +1,7 @@
 import { AssistantMessage, AssistantMessageStreamEvent } from "./types/messages";
 export class EventStream<T, R> implements AsyncIterable<T> {
   private queue: T[] = [];
-  private resolvers: Array<(value: IteratorResult<T>) => void> = [];
+  private resolvers: Array<{ resolve: (value: IteratorResult<T>) => void; reject: (reason?: any) => void }> = [];
   private done = false;
   private error: unknown = undefined;
   private finalOutput: R | undefined = undefined;
@@ -9,7 +9,7 @@ export class EventStream<T, R> implements AsyncIterable<T> {
     if (this.done) throw new Error("Cannot push to a closed EventStream");
 
     if (this.resolvers.length > 0) {
-      const resolve = this.resolvers.shift()!;
+      const { resolve } = this.resolvers.shift()!;
       resolve({ value: event, done: false });
     } else {
       this.queue.push(event);
@@ -18,7 +18,7 @@ export class EventStream<T, R> implements AsyncIterable<T> {
 
   close(): void {
     this.done = true;
-    for (const resolve of this.resolvers) {
+    for (const { resolve } of this.resolvers) {
       resolve({ value: undefined as never, done: true });
     }
     this.resolvers = [];
@@ -27,8 +27,8 @@ export class EventStream<T, R> implements AsyncIterable<T> {
   abort(error: unknown): void {
     this.error = error;
     this.done = true;
-    for (const resolve of this.resolvers) {
-      resolve({ value: undefined as never, done: true });
+    for (const { reject } of this.resolvers) {
+      reject(error);
     }
     this.resolvers = [];
   }
@@ -59,8 +59,8 @@ export class EventStream<T, R> implements AsyncIterable<T> {
         }
         // nothing is in the queue when next is called, so we store the resolver and pass once it becomes available. 
 
-        return new Promise<IteratorResult<T>>((resolve) => {
-          this.resolvers.push(resolve);
+        return new Promise<IteratorResult<T>>((resolve, reject) => {
+          this.resolvers.push({ resolve, reject });
         });
       },
     };
