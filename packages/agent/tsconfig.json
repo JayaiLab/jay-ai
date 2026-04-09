@@ -1,9 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src",
+    "rootDirs": ["src"],
     "outDir": "dist",
-    "declaration": true
+    "declaration": true,
+    "paths": {
+      "@jay-ai/core": ["../core/src"],
+    }
   },
   "include": ["src"]
 }

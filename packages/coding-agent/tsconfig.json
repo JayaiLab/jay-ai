@@ -3,7 +3,12 @@
   "compilerOptions": {
     "rootDirs": ["src", "test"],
     "outDir": "dist",
-    "declaration": true
+    "declaration": true,
+    "paths": {
+      "@jay-ai/core": ["../core/src"],
+      "@jay-ai/tui": ["../tui/src"],
+      "@jay-ai/agent": ["../agent/src"],
+    }
   },
   "include": ["src", "test"]
 }
