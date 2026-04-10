@@ -39,6 +39,9 @@ jobs:
       - name: Version packages
         run: npx changeset version
 
+      - name: Sync lock file
+        run: npm install --package-lock-only
+
       - name: Build
         run: npm run build
 
