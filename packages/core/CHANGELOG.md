@@ -1,5 +1,11 @@
 # @jay-ai/core
 
+## 0.2.0
+
+### Minor Changes
+
+- 790197e: feat: add OpenAI Codex streaming provider with SSE and WebSocket support
+
 ## 0.1.0
 
 ### Minor Changes
