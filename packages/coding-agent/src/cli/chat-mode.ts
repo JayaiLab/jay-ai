@@ -17,6 +17,7 @@ import { loadSettings, saveSettings } from "../settings";
 import { ToolRendererRegistry } from "./tool-renderers";
 import { getAuthenticatedModels } from "./models";
 import { anthropicOAuthProvider, openaiCodexOAuthProvider } from "@jay-ai/core";
+import type { Transport } from "@jay-ai/core";
 import type { OAuthProviderInterface } from "@jay-ai/core";
 import fs from "fs";
 
@@ -51,6 +52,8 @@ type ResolvedAuth = {
     modelProvider: ModelProvider;
     apiKey?: string;
     authToken?: string;
+    transport?: Transport;
+    sessionId?: string;
 };
 
 /** Map model provider to OAuth provider ID. */
@@ -65,9 +68,13 @@ export function resolveAuth(): ResolvedAuth | null {
         model: settings.model,
         modelProvider: settings.modelProvider,
         authToken: auth.credentials.access,
+        transport: settings.transport,
     };
 }
 
+function generateSessionId(): string {
+    return crypto.randomUUID();
+}
 export class ChatMode {
     private terminal: Terminal;
     private agent: Agent;
@@ -78,14 +85,17 @@ export class ChatMode {
     private currentMessage: AssistantMessageComponent | null = null;
     private debugMode: boolean;
     private debugConfig: DebugConfig;
+    private readonly sessionId: string;
 
     constructor(auth: ResolvedAuth, debugMode: boolean = false, debugConfig?: DebugConfig) {
         this.debugMode = debugMode;
         this.debugConfig = debugConfig || {};
+        this.sessionId = auth.sessionId ?? generateSessionId();
         this.terminal = new Terminal();
         this.terminal.clearScreen();
         this.agent = new Agent({
             ...auth,
+            sessionId: this.sessionId,
             system: systemPrompt,
             max_tokens: 16000,
             thinking: { effort: "high" },
@@ -136,6 +146,9 @@ export class ChatMode {
                 break;
             case "/model":
                 await this.handleModelCommand();
+                break;
+            case "/transport":
+                await this.handleTransportCommand();
                 break;
             default:
                 this.conversation.addChild(new ErrorMessageComponent(`Unknown command: ${command}`));
@@ -199,6 +212,7 @@ export class ChatMode {
             if (newAuth) {
                 this.agent = new Agent({
                     ...newAuth,
+                    sessionId: this.sessionId,
                     system: systemPrompt,
                     max_tokens: 16000,
                     thinking: { effort: "high" },
@@ -259,6 +273,39 @@ export class ChatMode {
         this.render();
     }
 
+    private async handleTransportCommand(): Promise<void> {
+        this.prompt.setEnabled(false);
+
+        const cmdComponent = new CommandExecutionComponent("/transport");
+        this.conversation.addChild(cmdComponent);
+
+        const transports: Transport[] = ["websocket", "sse"];
+        const transportSelect = new SelectComponent(
+            "Select a transport:",
+            transports.map(t => ({
+                label: t,
+                description: t === "websocket" ? "Use WebSocket streaming" : "Use server-sent events",
+            })),
+        );
+        cmdComponent.addChild(transportSelect);
+        this.terminal.setDataHandler((key) => {
+            transportSelect.handleKey(key);
+            this.render();
+        });
+        this.render();
+
+        const transportIndex = await transportSelect.waitForSelection();
+        const chosen = transports[transportIndex];
+        saveSettings({ ...loadSettings(), transport: chosen });
+
+        cmdComponent.addLine("");
+        cmdComponent.addLine(`Transport set to ${chosen}`);
+
+        this.prompt.setEnabled(true);
+        this.restoreDataHandler();
+        this.render();
+    }
+
     private async handleInput(input: string): Promise<void> {
         if (input.startsWith("/")) {
             void this.handleCommand(input.trim());
@@ -271,7 +318,7 @@ export class ChatMode {
 
         let logPath: string | null = null;
         if (this.debugMode && this.debugConfig.captureAgentStream) {
-            logPath = `${import.meta.dirname}/../test/AGENT_STREAM_${Date.now()}.jsonl`;
+            logPath = `/tmp/AGENT_STREAM_${Date.now()}.jsonl`;
             fs.writeFileSync(logPath, "");
         }
 
