@@ -4,6 +4,7 @@ import { runLogin } from "../login";
 import { ChatMode, resolveAuth } from "./chat-mode";
 import { getAuthenticatedModels } from "./models";
 import { loadSettings, saveSettings } from "../settings";
+import type { Transport } from "@jay-ai/core";
 
 const version = import.meta.env.VERSION ?? "dev";
 
@@ -54,6 +55,23 @@ program
         const chosen = availableModels[i];
         saveSettings({ ...loadSettings(), model: chosen.id, modelProvider: chosen.provider });
         terminal.write(`Model set to ${chosen.id} (${chosen.provider})\n`);
+        process.exit(0);
+    });
+
+program
+    .command("transport")
+    .description("Select the transport to use for supported providers")
+    .action(async () => {
+        const terminal = new Terminal();
+        const transports: Transport[] = ["websocket", "sse"];
+        terminal.write("Select a transport:\n");
+        const i = await selectFromOptions(terminal, transports.map(t => ({
+            label: t,
+            description: t === "websocket" ? "Use WebSocket streaming" : "Use server-sent events",
+        })));
+        const chosen = transports[i];
+        saveSettings({ ...loadSettings(), transport: chosen });
+        terminal.write(`Transport set to ${chosen}\n`);
         process.exit(0);
     });
 

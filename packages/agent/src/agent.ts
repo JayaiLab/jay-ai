@@ -1,4 +1,4 @@
-import { AnthropicProvider, AssistantMessage, EventStream, InputMessage, LLMProvider, OpenAIProvider, ToolResultBlock, ToolResultContent } from "@jay-ai/core";
+import { AnthropicProvider, AssistantMessage, EventStream, InputMessage, LLMProvider, OpenAIProvider, OpenAICodexProvider, ToolResultBlock, ToolResultContent } from "@jay-ai/core";
 import { AgentConfig, AgentStreamEvent } from "./types/agents";
 import { AgentTool } from "./types/tools";
 
@@ -9,7 +9,7 @@ function createProvider(config: AgentConfig): LLMProvider {
     switch (config.modelProvider) {
         case "anthropic": return new AnthropicProvider(config);
         case "openai": return new OpenAIProvider(config);
-        case "openai-codex": return new OpenAIProvider(config);
+        case "openai-codex": return new OpenAICodexProvider(config);
     }
 }
 
