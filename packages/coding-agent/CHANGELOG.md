@@ -1,5 +1,15 @@
 # @jay-ai/coding-agent
 
+## 0.2.1
+
+### Patch Changes
+
+- be32139: Fix cursor positioning on paste and arrow keys, add loader spinner and footer components, make debug logging opt-in
+- Updated dependencies [be32139]
+  - @jay-ai/tui@0.2.1
+  - @jay-ai/core@0.2.1
+  - @jay-ai/agent@0.2.1
+
 ## 0.2.0
 
 ### Minor Changes
