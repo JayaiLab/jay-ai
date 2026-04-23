@@ -3,8 +3,8 @@ import {
     Terminal, Container,
     UserMessageComponent, AssistantMessageComponent,
     ToolExecutionComponent, PromptComponent, WelcomeComponent,
-    SelectComponent, CommandExecutionComponent, InputComponent,
-    debugLog,
+    SelectComponent, CommandExecutionComponent, InputComponent, FooterComponent, LoaderComponent,
+    debugLog, enableDebugLog,
 } from "@jay-ai/tui";
 import readTool from "../tools/read";
 import bashTool from "../tools/bash";
@@ -83,6 +83,8 @@ export class ChatMode {
     private prompt: PromptComponent;
     private root: Container;
     private currentMessage: AssistantMessageComponent | null = null;
+    private loader: LoaderComponent;
+    private footer: FooterComponent;
     private debugMode: boolean;
     private debugConfig: DebugConfig;
     private readonly sessionId: string;
@@ -90,6 +92,7 @@ export class ChatMode {
     constructor(auth: ResolvedAuth, debugMode: boolean = false, debugConfig?: DebugConfig) {
         this.debugMode = debugMode;
         this.debugConfig = debugConfig || {};
+        if (this.debugConfig.tuiDebug) enableDebugLog();
         this.sessionId = auth.sessionId ?? generateSessionId();
         this.terminal = new Terminal();
         this.terminal.clearScreen();
@@ -104,6 +107,7 @@ export class ChatMode {
         this.prompt = new PromptComponent((input) => {
             void this.handleInput(input);
         });
+        this.loader = new LoaderComponent(() => this.render());
 
         const authSource = `${auth.modelProvider} · ${auth.model}`;
         const welcome = new WelcomeComponent(`Welcome to Jay AI (${authSource}). Type a message to get started.\n`);
@@ -111,10 +115,15 @@ export class ChatMode {
             welcome.setSuffix(() => `debug mode on. Press 'k' to continue.\n`);
         }
 
+        this.footer = new FooterComponent();
+        this.footer.setText(authSource);
+
         this.root = new Container([
             welcome,
             this.conversation,
-            this.prompt
+            this.loader,
+            this.prompt,
+            this.footer,
         ]);
 
         this.restoreDataHandler();
@@ -217,6 +226,7 @@ export class ChatMode {
                     max_tokens: 16000,
                     thinking: { effort: "high" },
                 }, [readTool, bashTool, writeTool, editTool, grepTool]);
+                this.footer.setText(`${newAuth.modelProvider} · ${newAuth.model}`);
             }
             authComponent.addLine("");
             authComponent.addLine(`Credentials saved to ~/.jayai/auth.json`);
@@ -267,6 +277,7 @@ export class ChatMode {
 
         cmdComponent.addLine("");
         cmdComponent.addLine(`Model set to ${chosen.id} (${chosen.provider})`);
+        this.footer.setText(`${chosen.provider} · ${chosen.id}`);
 
         this.prompt.setEnabled(true);
         this.restoreDataHandler();
@@ -330,6 +341,7 @@ export class ChatMode {
 
                 switch (event.type) {
                     case "message_start":
+                        this.loader.start();
                         this.currentMessage = new AssistantMessageComponent();
                         this.conversation.addChild(this.currentMessage);
                         break;
@@ -337,9 +349,11 @@ export class ChatMode {
                         this.currentMessage!.update(event.streamEvent.snapshot);
                         break;
                     case "message_end":
+                        this.loader.stop();
                         this.currentMessage = null;
                         break;
                     case "tool_execution_start": {
+                        this.loader.start();
                         const renderer = this.renderers.get(event.name);
                         const tool = new ToolExecutionComponent(renderer.renderStart(event.input));
                         this.conversation.addChild(tool);
@@ -354,6 +368,7 @@ export class ChatMode {
                         break;
                     }
                     case "error": {
+                        this.loader.stop();
                         const message = formatProviderError(event.error);
                         this.conversation.addChild(new ErrorMessageComponent(message));
                         break;
@@ -363,6 +378,7 @@ export class ChatMode {
                 if (this.debugConfig.stepThrough) await this.terminal.waitForKey("k");
             }
         } catch (err) {
+            this.loader.stop();
             const message = formatProviderError(err);
             this.conversation.addChild(new ErrorMessageComponent(message));
             this.render();
