@@ -40,7 +40,7 @@ export class PromptComponent implements Component {
                 this.inputBuffer.slice(0, this.cursorPos) +
                 key +
                 this.inputBuffer.slice(this.cursorPos);
-            this.cursorPos++;
+            this.cursorPos += key.length;
         }
     }
 

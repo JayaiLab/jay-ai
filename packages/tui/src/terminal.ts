@@ -129,8 +129,16 @@ export class Terminal {
 
         debugLog("rewrite", { firstDiffRow, lastDiffRow, viewportTop: this.viewportTop, oldRows, newRows, cursorPos });
 
-        // Nothing changed
-        if (firstDiffRow === -1 && lastDiffRow === -1) return;
+        // Nothing changed in text content — but cursor may have moved because user is pressing left/right arrow.
+        if (firstDiffRow === -1 && lastDiffRow === -1) {
+            if (cursorPos) {
+                process.stdout.write("\x1b[?25h");
+                this.positionHardwareCursor(cursorPos, newRows.length);
+            } else {
+                process.stdout.write("\x1b[?25l");
+            }
+            return;
+        }
 
         // Step 2. Move cursor to where the firstDiffRow is. Rewrite rows from firstDiffRow to lastDiffRow.
         // The terminal is a window into a scrollback buffer. The buffer can have many rows, but the terminal only shows height rows at a time.
