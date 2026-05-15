@@ -116,7 +116,8 @@ export class ChatMode {
         }
 
         this.footer = new FooterComponent();
-        this.footer.setText(authSource);
+        const newlineKey = process.platform === "darwin" ? "Option+Enter" : "Alt+Enter";
+        this.footer.setText(`${authSource}  ·  ${newlineKey} for newline`);
 
         this.root = new Container([
             welcome,

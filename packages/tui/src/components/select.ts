@@ -1,4 +1,5 @@
 import { Component } from "../compotent";
+import { wrapLines } from "../wrap";
 
 export interface SelectOption {
     label: string;
@@ -28,7 +29,9 @@ export class SelectComponent implements Component {
     handleKey(key: string): boolean {
         if (this.resolved) return false;
 
-        if (key === "\x1b[A") { // up
+        if (key === "\x03") { // Ctrl+C
+            process.exit();
+        } else if (key === "\x1b[A") { // up
             this.selected = (this.selected - 1 + this.options.length) % this.options.length;
             return true;
         } else if (key === "\x1b[B") { // down
@@ -54,20 +57,25 @@ export class SelectComponent implements Component {
         });
     }
 
-    render(_width: number): string[] {
+    render(width: number): string[] {
         const lines: string[] = [];
-        lines.push(this.title);
+        lines.push(...wrapLines(this.title, width));
         if (!this.resolved) {
-            lines.push("Use ↑↓ to navigate, Enter to confirm:");
+            lines.push(...wrapLines("Use ↑↓ to navigate, Enter to confirm:", width));
         }
         lines.push("");
+        const prefixWidth = 2;
         for (let i = 0; i < this.options.length; i++) {
+            if (this.resolved && i !== this.selected) continue;
             const o = this.options[i];
             const cursor = i === this.selected ? "> " : "  ";
-            const desc = o.description ? `  ${o.description}` : "";
             const color = i === this.selected ? "\x1b[34m" : "\x1b[90m";
-            if (this.resolved && i !== this.selected) continue;
-            lines.push(`${color}${cursor}${o.label}${desc}\x1b[0m`);
+            const desc = o.description ? `  ${o.description}` : "";
+            const wrapped = wrapLines(`${o.label}${desc}`, width - prefixWidth);
+            for (let j = 0; j < wrapped.length; j++) {
+                const prefix = j === 0 ? cursor : "  ";
+                lines.push(`${color}${prefix}${wrapped[j]}\x1b[0m`);
+            }
         }
         return lines;
     }

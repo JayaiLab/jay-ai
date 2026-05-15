@@ -31,8 +31,14 @@ export class Terminal {
     private viewportTop: number = 0; // the row number of the top of the viewport
     private renderCount: number = 0;
 
+    // Node.js might split a long paste into multiple data events, which triggeres onData multiple times, causing multiple re-render, so we have to buffer the paste and trigger onData once.
+    private pasteBuffer: string | null = null;
+    private static readonly PASTE_START = "\x1b[200~";
+    private static readonly PASTE_END = "\x1b[201~";
+
     constructor() {
         process.stdin.setRawMode(true);
+        process.stdout.write("\x1b[?2004h"); // enable bracketed paste mode
         process.stdin.on("data", (data: Buffer) => this.onData(data));
         process.stdout.on("resize", () => {
             this.emitter.dispatchEvent({
@@ -43,7 +49,8 @@ export class Terminal {
         });
 
         const cleanup = () => {
-            process.stdout.write("\x1b[?25h"); // restore cursor. Without this, the cursor will stay hidden after the program exits.
+            process.stdout.write("\x1b[?2004l"); // disable bracketed paste mode
+            process.stdout.write("\x1b[?25h"); // restore cursor
         };
         process.on("exit", cleanup);
         process.on("SIGINT", () => { cleanup(); process.exit(); });
@@ -293,13 +300,43 @@ export class Terminal {
 
     // ── Raw input handling ───────────────────────────────────────────────
 
+
     private onData(data: Buffer) {
         const key = data.toString();
-        if (key === "\x03") {
-            process.exit(); // Ctrl+C
+
+        // Buffering paste: accumulate chunks until we see the end marker
+        if (this.pasteBuffer !== null) {
+            const endIdx = key.indexOf(Terminal.PASTE_END);
+            if (endIdx !== -1) {
+                this.pasteBuffer += key.slice(0, endIdx);
+                const pasted = this.pasteBuffer.replace(/\r\n?/g, "\n");
+                this.pasteBuffer = null;
+                this.dataHandler(pasted);
+            } else {
+                this.pasteBuffer += key;
+            }
+            return;
         }
+
+        // Start of a paste
+        const startIdx = key.indexOf(Terminal.PASTE_START);
+        if (startIdx !== -1) {
+            const afterStart = key.slice(startIdx + Terminal.PASTE_START.length);
+            const endIdx = afterStart.indexOf(Terminal.PASTE_END);
+            if (endIdx !== -1) {
+                // Whole paste arrived in one chunk — flush immediately.
+                const pasted = afterStart.slice(0, endIdx).replace(/\r\n?/g, "\n");
+                this.dataHandler(pasted);
+            } else {
+                this.pasteBuffer = afterStart;
+            }
+            return;
+        }
+
         this.dataHandler(key);
     }
 
-    private defaultDataHandler(key: string): void { }
+    private defaultDataHandler(key: string): void {
+        if (key === "\x03") process.exit(); // Ctrl+C fallback
+    }
 }
