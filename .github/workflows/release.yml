@@ -52,7 +52,10 @@ jobs:
 
       - name: Publish to npm
         id: publish
-        run: npx changeset publish 2>&1 | tee publish-output.txt
+        shell: bash
+        run: |
+          set -o pipefail
+          npx changeset publish 2>&1 | tee publish-output.txt
 
       - name: Push changes and tags
         run: git push --follow-tags
