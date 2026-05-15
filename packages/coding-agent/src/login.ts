@@ -2,6 +2,7 @@ import { anthropicOAuthProvider } from "@jay-ai/core";
 import type { OAuthProviderInterface } from "@jay-ai/core";
 import { Terminal, selectFromOptions } from "@jay-ai/tui";
 import { saveAuth } from "./auth.js";
+import { openUrl } from "./open-url.js";
 
 const PROVIDERS: OAuthProviderInterface[] = [anthropicOAuthProvider];
 
@@ -36,8 +37,9 @@ export async function runLogin(terminal: Terminal): Promise<void> {
     try {
         const credentials = await provider.login({
             onAuth: ({ url }) => {
-                terminal.write(`Open this URL in your browser:\n\n  ${url}\n\n`);
+                terminal.write(`Opening this URL in your browser:\n\n  ${url}\n\n`);
                 terminal.write("After authorizing, paste the code below:\n> ");
+                openUrl(url);
             },
             onPrompt: () => waitForInput(terminal),
         });

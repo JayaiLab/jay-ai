@@ -17,6 +17,7 @@ import { loadSettings, saveSettings } from "../settings";
 import { ToolRendererRegistry } from "./tool-renderers";
 import { getAuthenticatedModels } from "./models";
 import { anthropicOAuthProvider, openaiCodexOAuthProvider } from "@jay-ai/core";
+import { openUrl } from "../open-url.js";
 import type { Transport } from "@jay-ai/core";
 import type { OAuthProviderInterface } from "@jay-ai/core";
 import fs from "fs";
@@ -202,7 +203,7 @@ export class ChatMode {
                     cmdComponent.setVisible(false);
                     this.conversation.addChild(authComponent);
                     authComponent.addLine("");
-                    authComponent.addLine("Open this URL in your browser:");
+                    authComponent.addLine("Opening this URL in your browser:");
                     authComponent.addLine(`  ${url}`);
                     authComponent.addLine("");
                     authComponent.addLine("After authorizing, paste the code below:");
@@ -212,6 +213,7 @@ export class ChatMode {
                         this.render();
                     });
                     this.render();
+                    openUrl(url);
                 },
                 onPrompt: () => inputComponent.waitForInput(),
             });
