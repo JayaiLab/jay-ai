@@ -1,4 +1,5 @@
 import { Component } from "../compotent";
+import { wrapLines } from "../wrap";
 
 export class FooterComponent implements Component {
     private text: string = "";
@@ -7,7 +8,7 @@ export class FooterComponent implements Component {
         this.text = text;
     }
 
-    render(_width: number): string[] {
-        return [`\x1b[90m${this.text}\x1b[0m`];
+    render(width: number): string[] {
+        return wrapLines(this.text, width).map(line => `\x1b[90m${line}\x1b[0m`);
     }
 }
