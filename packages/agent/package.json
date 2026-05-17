@@ -35,5 +35,14 @@
   "engines": {
     "node": ">=20"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JayaiLab/jay-ai.git",
+    "directory": "packages/agent"
+  },
+  "homepage": "https://github.com/JayaiLab/jay-ai/tree/main/packages/agent",
+  "bugs": {
+    "url": "https://github.com/JayaiLab/jay-ai/issues"
+  }
 }
